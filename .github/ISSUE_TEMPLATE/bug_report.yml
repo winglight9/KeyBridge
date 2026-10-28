@@ -1,0 +1,31 @@
+name: Bug report / 问题反馈
+description: Connection, permissions, keyboard, trackpad or gesture issue
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened? / 出现了什么问题？
+      description: Describe expected behavior and actual behavior. Do not paste passwords or tokens.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KeyBridge version / 软件版本
+  - type: input
+    id: systems
+    attributes:
+      label: Both Mac models and macOS versions / 两台 Mac 型号及系统版本
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Connection / 连接方式
+      options:
+        - Bluetooth / 蓝牙
+        - Thunderbolt cable / 雷雳线
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics / 诊断信息
+      description: Gear menu → Copy diagnostics. Review device names and addresses before posting publicly.
+      render: json

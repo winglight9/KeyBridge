@@ -1,0 +1,15 @@
+.build/
+.swiftpm/
+dist/
+work/
+.playwright-mcp/
+.DS_Store
+outputs/
+.codex/
+.wrangler/
+node_modules/
+.env
+.env.*
+*.p12
+*.keychain-db
+*.pem

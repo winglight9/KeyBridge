@@ -1,0 +1,16 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Protocol and diagnostic checks
+        run: ./script/test.sh
+      - name: Build the macOS application
+        run: swift build --product KeyBridge
