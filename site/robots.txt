@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://keybridge.886366.xyz/sitemap.xml
