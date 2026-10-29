@@ -3,12 +3,14 @@ import CoreGraphics
 
 /// Opaque Quartz gesture transport, not a table mapping finger movements to actions.
 ///
-/// Quartz delivers trackpad gesture/touch metadata under event type 29; AppKit derives
-/// magnify, rotate, swipe, etc. from it. Preserving that event leaves interpretation to
-/// the destination. Availability and system-gesture recognition need hardware testing.
+/// Preserve the interpreted gesture stream (29) and its Dock companion stream (30).
+/// The destination interprets the opaque payload; no gesture-to-shortcut mapping is used.
+/// Availability and system recognition still require hardware validation.
 public enum NativeGestureEvent {
-    public static let version = 1
+    public static let version = 2
     public static let eventType: UInt32 = 29
+    public static let dockEventType: UInt32 = 30
+    public static let eventTypes: Set<UInt32> = [eventType, dockEventType]
     public static let maximumBytes = 16_384
     /// Tags our own replay, so it can never be captured and bounced back to the peer.
     public static let replayMarker: Int64 = 0x4B425247455354
@@ -16,14 +18,14 @@ public enum NativeGestureEvent {
     // Its 0x84 value is also used by Hammerspoon TouchEvents.c; no upstream code is bundled.
     private static let phaseField = CGEventField(rawValue: 0x84)!
 
-    public static func isGesture(_ event: CGEvent) -> Bool { event.type.rawValue == eventType }
+    public static func isGesture(_ event: CGEvent) -> Bool { eventTypes.contains(event.type.rawValue) }
 
     public static func encode(_ event: CGEvent) -> InputPacket? {
         guard isGesture(event), event.getIntegerValueField(.eventSourceUserData) != replayMarker,
               let flattened = event.data else { return nil }
         let bytes = flattened as Data
         guard !bytes.isEmpty, bytes.count <= maximumBytes else { return nil }
-        return InputPacket(.gesture, code:Int(eventType), nativeEvent:bytes)
+        return InputPacket(.gesture, code:Int(event.type.rawValue), nativeEvent:bytes)
     }
 
     public static func decode(_ bytes: Data) -> CGEvent? {
@@ -36,6 +38,9 @@ public enum NativeGestureEvent {
     /// phase, magnification, rotation and every other gesture field in the payload.
     public static func prepareForReplay(_ event: CGEvent, source: CGEventSource?, at point: CGPoint, timestamp: UInt64) {
         event.setSource(source)
+        // Process identifiers from the sender have no meaning on the receiving Mac.
+        event.setIntegerValueField(.eventTargetUnixProcessID, value: 0)
+        event.setIntegerValueField(.eventTargetProcessSerialNumber, value: 0)
         event.location = point
         event.timestamp = timestamp
         event.setIntegerValueField(.eventSourceUserData,value:replayMarker)

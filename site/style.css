@@ -6,3 +6,5 @@
 @media(prefers-reduced-motion:reduce){:root{scroll-behavior:auto}*,*:before{transition:none!important}}
 .button,.github{white-space:nowrap}.button svg,.github svg{flex-shrink:0}
 @media(max-width:760px){.mobile-break{display:none}.hero-actions{gap:18px}.button{padding-inline:20px}.intro{font-size:18px}}
+
+.connection-priority{margin:24px auto 0;padding:10px 17px;max-width:fit-content;border:1px solid #28534b;border-radius:12px;background:#0e1e1a;color:#b9eddd;font-size:14px;line-height:1.6;letter-spacing:0}.hero .connection-priority{margin-bottom:0}@media(max-width:760px){.connection-priority{font-size:12px;max-width:340px;padding:9px 13px}}

@@ -35,9 +35,9 @@ public struct InputPacket: Codable, Equatable {
         (kind != .key || (0...127).contains(code)) &&
         (kind != .button || (0...2).contains(code)) else { return false }
         if kind == .gesture {
-            guard code == Int(NativeGestureEvent.eventType), !down, !isRepeat, dx == 0, dy == 0,
+            guard NativeGestureEvent.eventTypes.contains(UInt32(clamping:code)), !down, !isRepeat, dx == 0, dy == 0,
                   let nativeEvent else { return false }
-            return NativeGestureEvent.decode(nativeEvent) != nil
+            return NativeGestureEvent.decode(nativeEvent)?.type.rawValue == UInt32(clamping:code)
         }
         return nativeEvent == nil
     }

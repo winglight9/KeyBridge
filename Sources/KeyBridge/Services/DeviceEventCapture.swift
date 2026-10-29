@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CoreGraphics
 import ApplicationServices
@@ -56,8 +57,13 @@ final class DeviceEventCapture {
     private var resolver: PhysicalEventSource?
     private var allowed = Set<UInt64>()
     private var gestureAllowed = Set<UInt64>()
+    private var lastPhysicalGestureAt = -Double.infinity
+    private var localPointer = CGPoint.zero
     private var counters = ["keyboard":0,"trackpad":0,"excluded":0,"unidentified":0]
-    var statistics: [String:Int] { lock.lock(); defer { lock.unlock() }; return counters }
+    var statistics: [String:Int] {
+        lock.lock(); defer { lock.unlock() }
+        return counters
+    }
 
     func start(completion: @escaping (Result<Void,Error>) -> Void) {
         stop()
@@ -65,6 +71,8 @@ final class DeviceEventCapture {
         guard HIDCatalog.allowed else { completion(.failure(BridgeError.invalid("Input Monitoring permission required"))); return }
         guard AXIsProcessTrusted() else { completion(.failure(BridgeError.invalid("Accessibility permission required on input source"))); return }
         do { resolver = try PhysicalEventSource() } catch { completion(.failure(error)); return }
+        localPointer = CGEvent(source:nil)?.location ?? .zero
+        lastPhysicalGestureAt = -Double.infinity
         allowed = Self.senderIdentifiers()
         gestureAllowed = Self.senderIdentifiers(internalTrackpadOnly:true)
         guard !allowed.isEmpty else { completion(.failure(BridgeError.invalid("No identifiable keyboard or internal trackpad"))); return }
@@ -77,7 +85,7 @@ final class DeviceEventCapture {
     private func run(completion: @escaping (Result<Void,Error>) -> Void) {
         let types: [CGEventType] = [.keyDown,.keyUp,.flagsChanged,.mouseMoved,.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.leftMouseDragged,.rightMouseDragged,.scrollWheel]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
-        guard let port = CGEvent.tapCreate(tap:.cgSessionEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:mask,callback: { _,type,event,context in
+        guard let port = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:mask,callback: { _,type,event,context in
             guard let context else { return Unmanaged.passUnretained(event) }
             return Unmanaged<DeviceEventCapture>.fromOpaque(context).takeUnretainedValue().handle(type,event:event)
         },userInfo:Unmanaged.passUnretained(self).toOpaque()) else {
@@ -89,8 +97,8 @@ final class DeviceEventCapture {
         guard enabled else { CFMachPortInvalidate(port); return }
         let source = CFMachPortCreateRunLoopSource(nil,port,0)
         CFRunLoopAddSource(current,source,.commonModes); CGEvent.tapEnable(tap:port,enable:true)
-        // Keep the proven keyboard/mouse tap unchanged. A separate gesture-only tap
-        // observes the native stream before system interpretation where macOS permits it.
+        // Capture interpreted gestures before delivery to apps and Dock. The HID layer
+        // precedes gesture recognition, while pointer suppression must happen at HID.
         var gesturePort: CFMachPort?
         var gestureSource: CFRunLoopSource?
         if gesturesEnabled, !gestureAllowed.isEmpty {
@@ -98,18 +106,19 @@ final class DeviceEventCapture {
                 guard let context else { return Unmanaged.passUnretained(event) }
                 return Unmanaged<DeviceEventCapture>.fromOpaque(context).takeUnretainedValue().handle(type,event:event)
             }
-            let gestureMask = CGEventMask(1) << NativeGestureEvent.eventType
-            let context = Unmanaged.passUnretained(self).toOpaque()
-            gesturePort = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:gestureMask,callback:callback,userInfo:context)
-            if gesturePort != nil { count("gestureTapHID") }
-            else {
-                gesturePort = CGEvent.tapCreate(tap:.cgSessionEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:gestureMask,callback:callback,userInfo:context)
-                count(gesturePort == nil ? "gestureTapUnavailable" : "gestureTapSession")
-            }
+            let gestureMask = NativeGestureEvent.eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) }
+            gesturePort = CGEvent.tapCreate(tap:.cgSessionEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:gestureMask,callback:callback,userInfo:Unmanaged.passUnretained(self).toOpaque())
+            count(gesturePort == nil ? "gestureTapUnavailable" : "gestureTapSession")
             if let gesturePort {
                 gestureSource = CFMachPortCreateRunLoopSource(nil,gesturePort,0)
                 CFRunLoopAddSource(current,gestureSource,.commonModes)
                 CGEvent.tapEnable(tap:gesturePort,enable:true)
+            } else {
+                CFMachPortInvalidate(port)
+                CFRunLoopRemoveSource(current,source,.commonModes)
+                lock.lock(); active = false; loop = nil; lock.unlock()
+                DispatchQueue.main.async { completion(.failure(BridgeError.invalid("macOS refused the gesture event tap"))) }
+                return
             }
         }
         let watchdog = DispatchSource.makeTimerSource(queue:DispatchQueue(label:"org.keybridge.capture-watchdog",qos:.userInteractive))
@@ -141,6 +150,14 @@ final class DeviceEventCapture {
             while !worker.isFinished, Date() < end { Thread.sleep(forTimeInterval:0.002) }
         }
     }
+    private func rememberLocalPointer(_ type:CGEventType, event:CGEvent) {
+        switch type {
+        case .mouseMoved,.leftMouseDragged,.rightMouseDragged,.otherMouseDragged,
+             .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp:
+            localPointer = event.location
+        default: break
+        }
+    }
     private func abort(_ message:String) { stop(); DispatchQueue.main.async { [weak self] in self?.onFailure?(message) } }
     private func count(_ key:String) { lock.lock(); counters[key,default:0] += 1; lock.unlock() }
     private func handle(_ type: CGEventType,event:CGEvent) -> Unmanaged<CGEvent>? {
@@ -152,18 +169,32 @@ final class DeviceEventCapture {
         if gesture { count("gestureSeen") }
         if type == .scrollWheel { count("scrollSeen") }
         let senders = resolver?.identifiers(event) ?? []
-        guard !senders.isEmpty else {
-            count("unidentified"); if type == .scrollWheel { count("scrollUnidentified") }
+        let now = ProcessInfo.processInfo.systemUptime
+        let physicalGesture = gesture && !gestureAllowed.isDisjoint(with:senders)
+        if physicalGesture { lastPhysicalGestureAt = now }
+        // Dock's companion event may omit the HID sender. Accept it only next to an
+        // identified internal-trackpad event, never arbitrary synthetic mouse input.
+        let companion = gesture && event.type.rawValue == NativeGestureEvent.dockEventType && senders.isEmpty &&
+            now-lastPhysicalGestureAt < 0.1 && event.getIntegerValueField(.eventSourceUnixProcessID) == 0
+        guard !senders.isEmpty || companion else {
+            count("unidentified"); count("unidentifiedType" + String(type.rawValue)); if type == .scrollWheel { count("scrollUnidentified") }
             if gesture { count("gestureUnidentified") }
+            rememberLocalPointer(type,event:event)
             return Unmanaged.passUnretained(event)
         }
         let eligible = gesture ? gestureAllowed : allowed
-        guard !eligible.isDisjoint(with:senders) else {
-            count("excluded"); if type == .scrollWheel { count("scrollExcluded") }
+        guard companion || !eligible.isDisjoint(with:senders) else {
+            count("excluded"); count("excludedType" + String(type.rawValue));
+            for sender in senders.prefix(4) { count("excludedSender" + String(sender)) }
+            if type == .scrollWheel { count("scrollExcluded") }
             if gesture { count("gestureExcluded") }
+            rememberLocalPointer(type,event:event)
             return Unmanaged.passUnretained(event)
         }
+        if companion { count("gestureCompanionMatched") }
         if gesture {
+            count("gestureQuartzType" + String(event.type.rawValue))
+            count("gestureAppKitType" + String(NSEvent(cgEvent:event)?.type.rawValue ?? 0))
             guard gesturesEnabled, let packet = NativeGestureEvent.encode(event), packet.isValid else {
                 count("gestureInvalid"); return Unmanaged.passUnretained(event)
             }
@@ -179,6 +210,13 @@ final class DeviceEventCapture {
             count("keyboard")
         case .mouseMoved,.leftMouseDragged,.rightMouseDragged:
             packet = InputPacket(.move,dx:event.getDoubleValueField(.mouseEventDeltaX),dy:event.getDoubleValueField(.mouseEventDeltaY),flags:event.flags.rawValue); count("trackpad")
+            // Dropping a Quartz event does not reliably undo the hardware cursor move.
+            // Restore only an identified internal-trackpad move. Other mice pass through
+            // unchanged and update the anchor; no global disassociation or delta replay.
+            if !gestureAllowed.isDisjoint(with:senders) {
+                if CGWarpMouseCursorPosition(localPointer) == .success { count("localTrackpadPointerRestored") }
+                else { count("localTrackpadPointerRestoreFailed") }
+            }
         case .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp:
             packet = InputPacket(.button,code:(type == .rightMouseDown || type == .rightMouseUp) ? 1 : 0,down:type == .leftMouseDown || type == .rightMouseDown,flags:event.flags.rawValue); count("trackpad")
         case .scrollWheel:

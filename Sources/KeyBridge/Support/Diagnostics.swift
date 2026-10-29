@@ -9,7 +9,7 @@ enum Diagnostics {
     static var statusFile: URL { directory.appendingPathComponent("status.json") }
     static func write(store: BridgeStore) {
         let dictionary: [String:Any] = [
-            "version":"0.2.0", "updatedAt":ISO8601DateFormatter().string(from:Date()),
+            "version":"0.2.0-beta.2", "updatedAt":ISO8601DateFormatter().string(from:Date()),
             "networkName":store.local.name, "mode":store.mode.rawValue,
             "state":String(describing:store.phase), "authenticated":store.ready,
             "forwarding":store.forwarding, "inputMonitoring":store.inputPermission,
@@ -23,7 +23,7 @@ enum Diagnostics {
             "detail":store.detail, "error":store.error
             ,"identityLoading":store.identityLoading,"identityNeedsAuthorization":store.identityNeedsAuthorization,
             "discoveredDevices":store.discoveries.map(\.name)
-            ,"inputCounters":store.inputStatistics, "wired":store.wiredDiagnostics
+            ,"routeToken":store.routeToken ?? "", "receivedInputCounters":store.receivedInputStatistics, "inputCounters":store.inputStatistics, "wired":store.wiredDiagnostics
         ]
         do {
             try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:true,attributes:[.posixPermissions:0o700])

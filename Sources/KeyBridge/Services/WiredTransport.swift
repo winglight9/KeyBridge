@@ -9,8 +9,11 @@ final class WiredTransport: BridgeTransport {
     var onDevices: (([DiscoveredDevice]) -> Void)?
     var onLink: ((DataLink) -> Void)?
     var onStatus: ((String) -> Void)?
-    private let queue = DispatchQueue(label: "org.keybridge.wired")
+    private let queue = DispatchQueue(label: "org.keybridge.wired", qos: .userInteractive)
     private var monitor: NWPathMonitor?
+    private var interfaceResolver: NWConnection?
+    private var resolvingInterfaceName: String?
+    private var resolvedInterface: NWInterface?
     private var listener: NWListener?
     private var browser: NWBrowser?
     private var results: [String: NWEndpoint] = [:]
@@ -68,29 +71,36 @@ final class WiredTransport: BridgeTransport {
             DispatchQueue.main.async { self?.update(path) }
         }
         monitor.start(queue: queue)
-        poller = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        poller = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
             guard let self, let path = self.monitor?.currentPath else { return }; self.update(path)
         }
+        if let poller { RunLoop.main.add(poller, forMode: .common) }
     }
     private func update(_ path: NWPath) {
         guard running else { return }
         snapshot = WiredSystemSnapshot.read()
         let diagnosis = snapshot.diagnosis
         guard diagnosis.stage == .ready else {
+            stopInterfaceResolver()
             if interfaceName != nil {
                 stopNetwork(); active?.close("Wired link disconnected"); active = nil
             }
             interfaceName = nil; report(diagnosis.message); return
         }
-        guard let interface = path.availableInterfaces.first(where: { $0.name == diagnosis.interfaceName }) else {
+        let candidate = path.availableInterfaces.first(where: { $0.name == diagnosis.interfaceName })
+            ?? interfaceResolver?.currentPath?.availableInterfaces.first(where: { $0.name == diagnosis.interfaceName })
+        guard let interface = candidate else {
+            if let name = diagnosis.interfaceName { resolveInterface(named: name) }
             if interfaceName != nil { stopNetwork(); active?.close("Wired link disconnected"); active = nil }
             interfaceName = nil
             report("Thunderbolt has a network address, but its interface is unavailable to the app. Retry or copy diagnostics."); return
         }
+        resolvedInterface = interface
         guard interface.name != interfaceName else { reportDiscovery(); return }
         stopNetwork(); interfaceName = interface.name
         discoveryBegan = ProcessInfo.processInfo.systemUptime
         let params = NWParameters.tcp
+        if let options = params.defaultProtocolStack.transportProtocol as? NWProtocolTCP.Options { options.noDelay = true }
         params.requiredInterface = interface
         params.includePeerToPeer = false
         params.allowLocalEndpointReuse = true
@@ -141,8 +151,32 @@ final class WiredTransport: BridgeTransport {
             networkIssues["listener"] = message; report(message)
         }
     }
+    // A default NWPath can omit a direct bridge when Wi-Fi or a VPN owns the default route.
+    // Resolve a path scoped to the bridge's IPv6 link-local multicast zone. No data is sent.
+    // All discovery and TCP traffic still explicitly require the resulting bridge interface.
+    private func resolveInterface(named name: String) {
+        guard resolvingInterfaceName != name else { return }
+        stopInterfaceResolver()
+        resolvingInterfaceName = name
+        let parameters = NWParameters.udp
+        parameters.includePeerToPeer = false
+        let resolver = NWConnection(host: NWEndpoint.Host("ff02::fb%" + name), port: 5353, using: parameters)
+        interfaceResolver = resolver
+        resolver.stateUpdateHandler = { [weak self, weak resolver] _ in
+            DispatchQueue.main.async {
+                guard let self, let resolver, self.running, self.interfaceResolver === resolver,
+                      let path = self.monitor?.currentPath else { return }
+                self.update(path)
+            }
+        }
+        resolver.start(queue: queue)
+    }
+    private func stopInterfaceResolver() {
+        interfaceResolver?.cancel(); interfaceResolver = nil
+        resolvingInterfaceName = nil; resolvedInterface = nil
+    }
     func connect(_ id: String) {
-        guard let endpoint = results[id], let interface = monitor?.currentPath.availableInterfaces.first(where: { $0.name == interfaceName }) else {
+        guard let endpoint = results[id], let interface = resolvedInterface, interface.name == interfaceName else {
             report("Direct device is no longer available"); return
         }
         let params = NWParameters.tcp; params.requiredInterface = interface; params.includePeerToPeer = false
@@ -191,6 +225,7 @@ final class WiredTransport: BridgeTransport {
     }
     func stop() {
         running = false; poller?.invalidate(); poller = nil; generation = UUID(); monitor?.cancel(); monitor = nil
+        stopInterfaceResolver()
         stopNetwork(); active?.close(); active = nil; interfaceName = nil; lastStatus = ""
     }
     private func stopNetwork() {

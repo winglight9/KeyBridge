@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v0.2.0-beta.1](https://github.com/winglight9/KeyBridge/releases/tag/v0.2.0-beta.1) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v0.2.0-beta.2](https://github.com/winglight9/KeyBridge/releases/tag/v0.2.0-beta.2) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -14,10 +14,14 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 | --- | --- |
 | Bluetooth typing, pointer movement, clicks and dragging | User verified on an M1 Pro MacBook and M4 Mac mini / 用户已实测 |
 | Two-finger scrolling / 双指滚动 | User verified / 用户已实测 |
-| Direct cable through Thunderbolt Bridge / 雷雳网桥有线直连 | Implemented; physical cable acceptance testing pending / 已实现，待线材实测 |
-| Native pinch, rotation and three/four-finger gestures / 原生捏合、旋转和三／四指手势 | Experimental; disabled by default; physical behavior unverified / 实验功能，默认关闭，待实机确认 |
+| Direct cable through Thunderbolt Bridge / 雷雳网桥有线直连 | User verified in the setup below / 已在下述组合实测 |
+| Native multi-finger gestures and source trackpad isolation / 原生多指手势与来源触摸板隔离 | User confirmed working over the wired link below; experimental option remains off by default / 用户已确认下述有线组合正常；实验选项仍默认关闭 |
 | Touch ID, FileVault/pre-login input and Force Touch actions | Unsupported / 不支持 |
 | Fn/media keys and other Mac/OS combinations | Compatibility not established / 兼容性尚未确认 |
+
+**Physical acceptance scope (2026-10-29):** the user confirmed wired input, multi-finger gestures, source trackpad isolation and external-mouse behavior on an **M1 Pro MacBook → M4 Mac mini, both running macOS 15.8.1**. This is a result for that setup, not a compatibility guarantee for every Mac, OS, app or gesture. Earlier Bluetooth checks covered typing, pointer movement, clicks, dragging and two-finger scrolling.
+
+**实测范围（2026-10-29）：** 用户已确认 **M1 Pro MacBook → M4 Mac mini、两台 macOS 15.8.1** 的有线输入、多指手势、来源触摸板隔离及外置鼠标表现正常。该结论仅针对这套组合，不代表所有机型、系统、应用或每一种手势均已验证。此前蓝牙实测覆盖打字、指针、点击、拖动和双指滚动。
 
 Native gesture forwarding preserves the gesture event for the destination Mac and its apps to interpret. It does **not** replace gestures with preset keyboard shortcuts. Whether a gesture is recognized, and the resulting action, still depend on the destination system, settings and app. The experimental path uses undocumented macOS behavior; it is not a guarantee of complete gesture support.
 
@@ -33,9 +37,23 @@ Native gesture forwarding preserves the gesture event for the destination Mac an
 
 两台打开软件并授权 → 选择链路 → 核对两边六位配对码 → 选择「设备」和「应用于」。用鼠标即可操作，不依赖快捷键。中文系统默认中文，其余默认英文，也可在菜单中手动切换。
 
-For a direct cable, use a **Thunderbolt-capable cable and ports** that establish Thunderbolt Bridge networking. USB-C describes the connector; an arbitrary C-to-C charging/data cable is not sufficient. KeyBridge reports observed configuration, link and network states. A missing link by itself cannot identify the cable’s exact capabilities. See [wired diagnosis](docs/setup.md#wired-diagnosis--有线诊断).
+## Recommended connection and cable / 推荐连接与线材
 
-有线需要能建立雷雳网桥网络的线材及接口，不能仅凭两端都是 Type-C 判断。软件会显示配置、链路与网络状态；只看到「未检测到链路」时，无法直接断定线材不支持。
+**Use wired for daily work. Bluetooth has noticeable latency, especially with the trackpad; use it temporarily or as a backup.** It remains a manually selected mode, with no silent fallback.
+
+**日常使用推荐有线。蓝牙延迟较高，触摸板上尤其明显，建议仅临时使用或备用。** 连接方式由你手动选择，不会悄悄切换。
+
+- Choose a **certified Thunderbolt 3 or Thunderbolt 4 USB-C cable** and connect it directly to a Thunderbolt port on each Mac. A USB4 cable is an option only when its manufacturer explicitly confirms Thunderbolt compatibility; a “USB4” label alone is not our purchase criterion.
+- **Mac mini (2024, M4/M4 Pro): use a rear port.** M4 has three rear Thunderbolt 4 ports; M4 Pro has three rear Thunderbolt 5 ports. The two front USB-C ports are USB 3 up to 10 Gb/s and do not provide the Thunderbolt connection required here.
+- “USB-C,” “full-featured,” “100 W/240 W,” video support or “10 Gb/s” alone does not establish Thunderbolt networking support. Charging power and connector shape are not enough.
+
+- 优先购买明确标注认证的 **雷雳 3 / Thunderbolt 3 或雷雳 4 / Thunderbolt 4 双 USB-C 线**，两端直接插入两台 Mac 的雷雳接口。USB4 线需由厂商明确说明兼容雷雳，不能只看“USB4”字样。
+- **Mac mini（2024，M4 / M4 Pro）必须接背面接口。** M4 背面为三个雷雳 4，M4 Pro 背面为三个雷雳 5；前面两个 USB-C 仅支持最高 10 Gb/s 的 USB 3，不提供这里所需的雷雳连接。
+- 仅写“全功能 Type-C”“100 W / 240 W”“支持视频”“10 Gb/s”，不足以确认能建立雷雳网桥。
+
+KeyBridge reports observed configuration, link and network states. A missing link alone cannot identify a cable’s exact capabilities. See [cable selection and wired diagnosis](docs/setup.md#cable-and-ports--线材与接口) and the [beta.2 release notes](docs/releases/v0.2.0-beta.2.md).
+
+软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
 ## Recovery and privacy / 恢复与隐私
 

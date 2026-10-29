@@ -45,6 +45,7 @@ final class BridgeStore: ObservableObject {
     private var heartbeat: Timer?
     private var lastReceived = ProcessInfo.processInfo.systemUptime
     private var connectionBegan = 0.0
+    private var lastHardwareRefresh = 0.0
     private var lastIdentityRefresh = 0.0
     private var pendingIntent: String?
     private var requestedDiscovery: String?
@@ -65,7 +66,8 @@ final class BridgeStore: ObservableObject {
         capture.onFailure = { [weak self] text in
             guard let self else { return }; self.stopForwarding(); self.error = text
         }
-        heartbeat = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
+        heartbeat = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
+        if let heartbeat { RunLoop.main.add(heartbeat, forMode: .common) }
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in self?.disconnect("Mac is sleeping") })
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in self?.shutdown() })
         prepareIdentity()
@@ -93,6 +95,8 @@ final class BridgeStore: ObservableObject {
     func allowIdentityAccess() { prepareIdentity() }
     var chinese: Bool { language == "zh" }
     var inputStatistics: [String:Int] { capture.statistics }
+    var receivedInputStatistics: [String:Int] { injector.statistics }
+    var routeToken: String? { route?.token }
     var wiredDiagnostics: [String:Any] { (transport as? WiredTransport)?.diagnosticSummary ?? [:] }
     func text(_ english: String, _ chinese: String) -> String { self.chinese ? chinese : english }
     var appName: String { text("KeyBridge", "键桥") }
@@ -228,7 +232,7 @@ final class BridgeStore: ObservableObject {
     private func acceptRoute(_ route: Route) {
         stopLocalInput()
         guard let peer, [local.id, peer.id].contains(route.source), [local.id, peer.id].contains(route.target) else { return }
-        self.route = route; sourceID = route.source; targetID = route.target
+        self.route = route; sourceID = route.source; targetID = route.target; error = ""
         guard route.source != route.target else { return }
         if route.target == local.id {
             guard InputInjector.allowed else { routeFailed("Accessibility permission required", route: route); return }
@@ -259,11 +263,11 @@ final class BridgeStore: ObservableObject {
                 guard let self else { return }
                 guard self.route?.token == token, self.ready else { return }
                 switch result {
-                case .success: self.forwarding = true; self.session?.send(Message(.routeActive, route: incoming)); self.log.info("Input forwarding started")
+                case .success: self.error = ""; self.forwarding = true; self.session?.send(Message(.routeActive, route: incoming)); self.log.info("Input forwarding started")
                 case .failure(let error): self.routeFailed(error.localizedDescription, route: incoming)
                 }
             }
-        case .routeActive: if message.route == route, route?.target == local.id { forwarding = true }
+        case .routeActive: if message.route == route, route?.target == local.id { error = ""; forwarding = true }
         case .routeError:
             if message.route?.token == route?.token { stopLocalInput(); error = message.detail ?? "Input unavailable"; targetID = sourceID; route = nil }
         case .input:
@@ -310,9 +314,15 @@ final class BridgeStore: ObservableObject {
     }
     private func refreshIdentity() {
         inputPermission = HIDCatalog.allowed; receivePermission = InputInjector.allowed
-        let endpoints = HIDCatalog.scan()
+        // IORegistry enumeration is unnecessary on every heartbeat and can delay input delivery.
+        let now = ProcessInfo.processInfo.systemUptime
+        var keyboard = local.keyboard, trackpad = local.trackpad
+        if !forwarding, now - lastHardwareRefresh >= 10 {
+            let endpoints = HIDCatalog.scan(); lastHardwareRefresh = now
+            keyboard = endpoints.contains { $0.kind == .keyboard }; trackpad = endpoints.contains { $0.kind == .trackpad }
+        }
         let updated = DeviceIdentity(id: local.id, name: IdentityVault.networkName,
-            keyboard: endpoints.contains { $0.kind == .keyboard }, trackpad: endpoints.contains { $0.kind == .trackpad }, canReceive: receivePermission)
+            keyboard: keyboard, trackpad: trackpad, canReceive: receivePermission)
         if updated != local { local = updated; session?.send(Message(.identity, identity: updated)) }
         if forwarding, route?.source == local.id, !inputPermission { stopForwarding(); error = "Input Monitoring permission was revoked" }
         Diagnostics.write(store:self)

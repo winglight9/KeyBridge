@@ -14,6 +14,8 @@ KEYBRIDGE_BINARY="$(swift build "${KEYBRIDGE_SWIFT_FLAGS[@]}" -c "$KEYBRIDGE_CON
 mkdir -p "$KEYBRIDGE_APP/Contents/MacOS" "$KEYBRIDGE_APP/Contents/Resources/en.lproj" "$KEYBRIDGE_APP/Contents/Resources/zh-Hans.lproj"
 cp "$KEYBRIDGE_BINARY" "$KEYBRIDGE_APP/Contents/MacOS/KeyBridge"
 cp "$KEYBRIDGE_ROOT/Assets/Brand/AppIcon.icns" "$KEYBRIDGE_ROOT/Assets/Brand/MenuBar.pdf" "$KEYBRIDGE_ROOT/Assets/Brand/MenuBarActive.pdf" "$KEYBRIDGE_APP/Contents/Resources/"
+# Give LaunchServices a fresh, explicit icon resource identity when replacing older betas.
+cp "$KEYBRIDGE_ROOT/Assets/Brand/AppIcon.icns" "$KEYBRIDGE_APP/Contents/Resources/KeyBridgeAppIcon.icns"
 cat > "$KEYBRIDGE_APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -22,10 +24,10 @@ cat > "$KEYBRIDGE_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>org.keybridge.app</string>
 <key>CFBundleName</key><string>KeyBridge</string>
 <key>CFBundleDisplayName</key><string>KeyBridge</string>
-<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleIconFile</key><string>KeyBridgeAppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>LSUIElement</key><true/>
