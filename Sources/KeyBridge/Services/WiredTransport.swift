@@ -186,12 +186,12 @@ final class WiredTransport: BridgeTransport {
     private func accept(_ connection: NWConnection, name: String) {
         active?.close("Replaced connection")
         let link = DataLink(name: name); active = link
-        var pendingBytes = 0
         link.writer = { [weak link] data in
-            guard pendingBytes + data.count < 262_144 else { link?.close("Send queue full"); return }
-            pendingBytes += data.count
-            connection.send(content: data, completion: .contentProcessed { error in
-                DispatchQueue.main.async { pendingBytes -= data.count; if let error { link?.close(error.localizedDescription) } }
+            guard let link else { return }
+            guard link.queuedBytes + data.count < 262_144 else { link.close("Send queue full"); return }
+            link.queuedBytes += data.count
+            connection.send(content: data, completion: .contentProcessed { [weak link] error in
+                DispatchQueue.main.async { link?.queuedBytes -= data.count; if let error { link?.close(error.localizedDescription) } }
             })
         }
         link.closer = { connection.cancel() }

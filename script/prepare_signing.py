@@ -43,7 +43,7 @@ if len(sys.argv) > 3 and sys.argv[2] == '--sign':
     original=shlex.split(run(['/usr/bin/security','list-keychains','-d','user']))
     try:
         run(['/usr/bin/security','list-keychains','-d','user','-s',*original,str(keychain)])
-        run(['/usr/bin/codesign','--force','--sign',fingerprint,'--keychain',str(keychain),'--options','runtime','--timestamp=none',sys.argv[3]])
+        run(['/usr/bin/codesign','--force','--sign',fingerprint,'--keychain',str(keychain),'--options','runtime','--timestamp=none','--entitlements',str(root/'Assets/KeyBridge.entitlements'),sys.argv[3]])
     finally:
         run(['/usr/bin/security','list-keychains','-d','user','-s',*original])
 else:

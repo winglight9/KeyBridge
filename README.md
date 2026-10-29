@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v1.1](https://github.com/winglight9/KeyBridge/releases/tag/v1.1) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.2](https://github.com/winglight9/KeyBridge/releases/tag/v1.2) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -16,6 +16,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 | Two-finger scrolling / 双指滚动 | User verified / 用户已实测 |
 | Direct cable through Thunderbolt Bridge / 雷雳网桥有线直连 | User verified in the setup below / 已在下述组合实测 |
 | Native multi-finger gestures and source trackpad isolation / 原生多指手势与来源触摸板隔离 | User confirmed working over the wired link below; experimental option remains off by default / 用户已确认下述有线组合正常；实验选项仍默认关闭 |
+| Wired microphone sharing / 有线麦克风共享 | New in 1.2; experimental, off by default; physical acceptance pending / 1.2 新增实验功能，默认关闭，待实机验收 |
 | Touch ID, FileVault/pre-login input and Force Touch actions | Unsupported / 不支持 |
 | Fn/media keys and other Mac/OS combinations | Compatibility not established / 兼容性尚未确认 |
 
@@ -54,6 +55,24 @@ Native gesture forwarding preserves the gesture event for the destination Mac an
 KeyBridge reports observed configuration, link and network states. A missing link alone cannot identify a cable’s exact capabilities. See [cable selection and wired diagnosis](docs/setup.md#cable-and-ports--线材与接口) and the [1.1 release notes](docs/releases/v1.1.md).
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
+
+## Experimental wired microphone / 实验性有线麦克风 · 1.2
+
+Share one Mac’s microphone with the paired Mac over the **encrypted wired connection**. Audio uses 48 kHz mono PCM in 20 ms frames; frame duration is not an end-to-end latency promise. **Bluetooth audio is not supported.**
+
+- Microphone sharing is **off by default**, with separate enable/mute controls; choosing a keyboard destination does not turn on the microphone or change its destination.
+- The source needs microphone permission. The receiving Mac needs an **optional virtual-microphone component**, installed once with administrator approval. macOS may require you to restart that Mac to load it; no audio-service or computer restart happens silently.
+- Choose **KeyBridge Microphone** in your receiving voice app. KeyBridge does **not** change the system’s default microphone automatically.
+- Disconnecting stops capture; reconnecting does not resume it automatically. This feature has **not yet completed physical two-Mac acceptance testing**, and compatibility with every voice app or macOS version is not established.
+
+通过**已配对、加密的有线连接**，把一台 Mac 的麦克风提供给另一台。音频为 48 kHz 单声道 PCM、每帧 20 ms；帧长不是端到端延迟承诺。**蓝牙不支持音频。**
+
+- 麦克风**默认关闭**，独立开启／静音；更换键盘控制目标不会自动开启麦克风或改变音频去向。
+- 来源端需要麦克风权限。接收端需选装**虚拟麦克风组件**，由管理员批准一次安装；系统可能需要你在方便时重启接收端才能载入，不会静默重启音频服务或电脑。
+- 在接收端语音应用中选择 **KeyBridge Microphone**；软件**不会自动修改系统默认麦克风**。
+- 断线立即停止采集，重连后需手动开启。功能**尚未完成双机实机验收**，不承诺所有语音应用或系统版本均兼容。
+
+[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.2 release notes / 1.2 发布说明](docs/release-1.2.md)
 
 ## Recovery and privacy / 恢复与隐私
 

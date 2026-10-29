@@ -36,8 +36,9 @@ final class KeyBridgeDelegate: NSObject, NSApplicationDelegate {
             self.popover.contentSize = size
         }
         popover.contentViewController = NSHostingController(rootView:root)
-        observer = store.$forwarding.receive(on:DispatchQueue.main).sink { [weak self] active in
-            self?.item?.button?.image = BrandAssets.menuIcon(active:active)
+        observer = store.$forwarding.combineLatest(store.$microphoneState).receive(on:DispatchQueue.main).sink { [weak self] active, microphone in
+            self?.item?.button?.image = BrandAssets.menuIcon(active:active || microphone == "sending" || microphone == "receiving")
+            self?.item?.button?.toolTip = microphone == "sending" ? "KeyBridge · Microphone sharing / 麦克风共享中" : "KeyBridge · 键桥"
         }
         DispatchQueue.main.asyncAfter(deadline:.now()+0.4) { [weak self] in self?.show() }
         DispatchQueue.main.asyncAfter(deadline:.now()+0.9) { [weak self] in

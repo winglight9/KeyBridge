@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>KeyBridgeMicrophone</string>
+<key>CFBundleIdentifier</key><string>org.keybridge.audio.microphone</string>
+<key>CFBundleName</key><string>KeyBridge Microphone</string>
+<key>CFBundlePackageType</key><string>BNDL</string>
+<key>CFBundleDevelopmentRegion</key><string>en</string>
+<key>CFBundleLocalizations</key><array><string>en</string><string>zh-Hans</string></array>
+<key>CFBundleShortVersionString</key><string>1.2</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>CFPlugInDynamicRegistration</key><false/>
+<key>CFPlugInFactories</key><dict><key>5EC6384E-F3CF-414D-9EB5-AC424DBBC462</key><string>KeyBridgeAudioFactory</string></dict>
+<key>CFPlugInTypes</key><dict><key>443ABAB8-E7B3-491A-B985-BEB9187030DB</key><array><string>5EC6384E-F3CF-414D-9EB5-AC424DBBC462</string></array></dict>
+</dict></plist>

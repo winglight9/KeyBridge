@@ -7,6 +7,7 @@ enum LinkMode: String, CaseIterable, Identifiable {
 }
 struct DiscoveredDevice: Identifiable, Equatable {
     let id: String
+    var queuedBytes = 0
     let name: String
 }
 
@@ -16,6 +17,7 @@ final class DataLink {
     var onClosed: ((String) -> Void)?
     var writer: ((Data) -> Void)?
     var closer: (() -> Void)?
+    var queuedBytes = 0
     let name: String
     private var decoder = FrameDecoder()
     private(set) var closed = false

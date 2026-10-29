@@ -8,10 +8,12 @@ public struct DeviceIdentity: Codable, Equatable {
     public var canReceive: Bool
     /// Absent in older peers; never send opaque gesture packets unless both ends support them.
     public var nativeGestureVersion: Int?
-    public init(id: String, name: String, keyboard: Bool, trackpad: Bool, canReceive: Bool, nativeGestureVersion: Int? = NativeGestureEvent.version) {
+    /// Absent in older peers; microphone messages require v1 support at both ends.
+    public var microphoneVersion: Int?
+    public init(id: String, name: String, keyboard: Bool, trackpad: Bool, canReceive: Bool, nativeGestureVersion: Int? = NativeGestureEvent.version, microphoneVersion: Int? = AudioPacket.version) {
         self.id = id; self.name = name; self.keyboard = keyboard
         self.trackpad = trackpad; self.canReceive = canReceive
-        self.nativeGestureVersion = nativeGestureVersion
+        self.nativeGestureVersion = nativeGestureVersion; self.microphoneVersion = microphoneVersion
     }
 }
 
@@ -53,16 +55,17 @@ public struct Route: Codable, Equatable {
 }
 
 public struct Message: Codable {
-    public enum Kind: String, Codable { case approved, identity, route, routeReady, routeActive, routeError, input, stop, ping, pong }
+    public enum Kind: String, Codable { case approved, identity, route, routeReady, routeActive, routeError, input, stop, ping, pong, audioStart, audioFrame, audioStop, audioReady, audioError }
     public var kind: Kind
     public var identity: DeviceIdentity?
     public var route: Route?
     public var input: InputPacket?
+    public var audio: AudioPacket?
     public var detail: String?
     public var stamp: Double?
-    public init(_ kind: Kind, identity: DeviceIdentity? = nil, route: Route? = nil, input: InputPacket? = nil, detail: String? = nil, stamp: Double? = nil) {
+    public init(_ kind: Kind, identity: DeviceIdentity? = nil, route: Route? = nil, input: InputPacket? = nil, detail: String? = nil, stamp: Double? = nil, audio: AudioPacket? = nil) {
         self.kind = kind; self.identity = identity; self.route = route
-        self.input = input; self.detail = detail; self.stamp = stamp
+        self.input = input; self.detail = detail; self.stamp = stamp; self.audio = audio
     }
 }
 

@@ -26,8 +26,8 @@ cat > "$KEYBRIDGE_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>KeyBridge</string>
 <key>CFBundleIconFile</key><string>KeyBridgeAppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.1</string>
-<key>CFBundleVersion</key><string>4</string>
+<key>CFBundleShortVersionString</key><string>1.2</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>LSUIElement</key><true/>
@@ -36,17 +36,22 @@ cat > "$KEYBRIDGE_APP/Contents/Info.plist" <<'PLIST'
 <key>NSBluetoothAlwaysUsageDescription</key><string>Connect directly to your paired Mac to share its keyboard and trackpad.</string>
 <key>NSBluetoothPeripheralUsageDescription</key><string>Connect directly to your paired Mac to share its keyboard and trackpad.</string>
 <key>NSLocalNetworkUsageDescription</key><string>Discover and connect to your other Mac over the direct Thunderbolt cable.</string>
+<key>NSMicrophoneUsageDescription</key><string>Share this Mac’s microphone with your paired Mac only when you enable microphone sharing.</string>
 <key>NSBonjourServices</key><array><string>_keybridge._tcp</string></array>
 </dict></plist>
 PLIST
 cat > "$KEYBRIDGE_APP/Contents/Resources/zh-Hans.lproj/InfoPlist.strings" <<'STRINGS'
 "CFBundleDisplayName" = "键桥";
+"NSMicrophoneUsageDescription" = "仅在你开启麦克风共享后，将本机麦克风通过有线连接共享给已配对的 Mac。";
 "NSBluetoothAlwaysUsageDescription" = "通过蓝牙直连已配对的 Mac，共享键盘和触摸板。";
 "NSBluetoothPeripheralUsageDescription" = "通过蓝牙直连已配对的 Mac，共享键盘和触摸板。";
 "NSLocalNetworkUsageDescription" = "通过雷雳直连线发现并连接另一台 Mac。";
 STRINGS
+# Bundle the optional receiver installer; it is never run by the build or app startup.
+"$KEYBRIDGE_ROOT/script/build_audio_driver.sh" >/dev/null
+cp "$KEYBRIDGE_ROOT/outputs/audio-driver/KeyBridge-Microphone.pkg" "$KEYBRIDGE_APP/Contents/Resources/KeyBridge-Microphone.pkg"
 if [[ -n "${KEYBRIDGE_SIGN_IDENTITY:-}" ]]; then
-  /usr/bin/codesign --force --sign "$KEYBRIDGE_SIGN_IDENTITY" --options runtime --timestamp=none "$KEYBRIDGE_APP"
+  /usr/bin/codesign --force --sign "$KEYBRIDGE_SIGN_IDENTITY" --options runtime --timestamp=none --entitlements "$KEYBRIDGE_ROOT/Assets/KeyBridge.entitlements" "$KEYBRIDGE_APP"
 else
   python3 "$KEYBRIDGE_ROOT/script/prepare_signing.py" "$KEYBRIDGE_ROOT" --sign "$KEYBRIDGE_APP"
 fi

@@ -36,12 +36,19 @@ public final class SecureSession {
     private var sent: UInt64 = 0
     private var received: UInt64 = 0
     private var failed = false
+    private var incomingAudio: (id: String, sequence: UInt64)?
+    private var outgoingAudio: (id: String, sequence: UInt64)?
     public init(identity: DeviceIdentity, signingKey: Curve25519.Signing.PrivateKey, pin: @escaping (String) -> String?) {
         self.identity = identity; self.signingKey = signingKey; self.pin = pin
     }
     public func start() {
         do {
-            let body = HelloBody(version: 1, identity: identity, ephemeral: ephemeral.publicKey.rawRepresentation,
+            // Legacy peers verify by decoding and re-encoding the signed Hello.
+            // Announce new optional capabilities only after that legacy handshake;
+            // adding an unknown field here would invalidate their signature check.
+            var handshakeIdentity = identity
+            handshakeIdentity.microphoneVersion = nil
+            let body = HelloBody(version: 1, identity: handshakeIdentity, ephemeral: ephemeral.publicKey.rawRepresentation,
                                  signing: signingKey.publicKey.rawRepresentation, nonce: nonce)
             let signature = try signingKey.signature(for: encoder.encode(body))
             sendWire?(Data([1]) + (try encoder.encode(Hello(body: body, signature: signature))))
@@ -63,6 +70,9 @@ public final class SecureSession {
             if packet.message.kind == .approved { remoteApproved = true; completeIfReady(); return }
             guard ready else { throw BridgeError.invalid("Pairing approval required") }
             if let input = packet.message.input, !input.isValid { throw BridgeError.invalid("Invalid input event") }
+            if packet.message.kind == .identity, let announced = packet.message.identity,
+               announced.id == peer?.id { peer = announced }
+            try validateAudio(packet.message, inbound: true)
             onMessage?(packet.message)
         } catch { fail(error.localizedDescription) }
     }
@@ -101,7 +111,52 @@ public final class SecureSession {
     }
     public func send(_ message: Message) {
         guard ready, !failed else { return }
+        // Unknown enum cases cannot be decoded by older peers. Never send audio to them.
+        if message.kind.isAudio {
+            guard identity.microphoneVersion == AudioPacket.version,
+                  peer?.microphoneVersion == AudioPacket.version else { return }
+        }
+        do { try validateAudio(message, inbound: false) }
+        catch { return } // A stopped producer can still have a queued frame; leave input sharing alive.
         sendEncrypted(message)
+    }
+    private func validateAudio(_ message: Message, inbound: Bool) throws {
+        guard message.kind.isAudio else {
+            guard message.audio == nil else { throw BridgeError.invalid("Audio payload on a non-audio message") }
+            return
+        }
+        guard identity.microphoneVersion == AudioPacket.version,
+              peer?.microphoneVersion == AudioPacket.version,
+              message.input == nil, let audio = message.audio else {
+            throw BridgeError.invalid("Unsupported or missing microphone payload")
+        }
+        if message.kind == .audioFrame {
+            let stream = inbound ? incomingAudio : outgoingAudio
+            guard audio.isValidFrame, let stream, stream.id == audio.streamID,
+                  audio.sequence > stream.sequence else {
+                throw BridgeError.invalid("Invalid microphone format, size, stream or sequence")
+            }
+            // Gaps are allowed: bounded capture queues intentionally discard old frames.
+            if inbound { incomingAudio = (audio.streamID, audio.sequence) }
+            else { outgoingAudio = (audio.streamID, audio.sequence) }
+            return
+        }
+        guard audio.isValidControl else { throw BridgeError.invalid("Invalid microphone control payload") }
+        switch message.kind {
+        case .audioStart:
+            // A repeated start must not reset the sequence window for this stream.
+            if inbound {
+                if incomingAudio?.id != audio.streamID { incomingAudio = (audio.streamID, 0) }
+            } else if outgoingAudio?.id != audio.streamID { outgoingAudio = (audio.streamID, 0) }
+        case .audioStop, .audioError:
+            if inbound {
+                if incomingAudio?.id == audio.streamID { incomingAudio = nil }
+                if outgoingAudio?.id == audio.streamID { outgoingAudio = nil }
+            } else if outgoingAudio?.id == audio.streamID { outgoingAudio = nil }
+            // Keep accepting already-in-flight incoming frames after our stop request;
+            // the caller discards them until the peer's ordered stop arrives.
+        default: break
+        }
     }
     private func sendEncrypted(_ message: Message) {
         do {

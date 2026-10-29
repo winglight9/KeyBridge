@@ -8,7 +8,7 @@ let package = Package(
     targets: [
         .target(name: "KeyBridgeCore"),
         .executableTarget(name: "KeyBridge", dependencies: ["KeyBridgeCore"], linkerSettings: [
-            .linkedFramework("AppKit"), .linkedFramework("IOKit"),
+            .linkedFramework("AVFoundation"), .linkedFramework("CoreAudio"), .linkedFramework("AppKit"), .linkedFramework("IOKit"),
             .linkedFramework("CoreBluetooth"), .linkedFramework("Network"),
             .linkedFramework("Security"), .linkedFramework("SystemConfiguration")
         ]),
