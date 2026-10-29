@@ -8,7 +8,8 @@ import KeyBridgeCore
 
 /// macOS has no public Quartz field for a physical mouse/trackpad sender.
 /// Resolve the system's optional IOHID copy accessor at runtime and fail closed if unavailable.
-/// Unknown senders, including all synthetic input, always stay local.
+/// Unknown senders stay local. A sender ID alone does not prove an event was
+/// never copied or synthesized by another application.
 private final class PhysicalEventSource {
     typealias CopyEvent = @convention(c) (UnsafeRawPointer) -> UnsafeRawPointer?
     typealias SenderID = @convention(c) (UnsafeRawPointer) -> UInt64
@@ -169,6 +170,28 @@ final class DeviceEventCapture {
         if gesture { count("gestureSeen") }
         if type == .scrollWheel { count("scrollSeen") }
         let senders = resolver?.identifiers(event) ?? []
+        // Quartz exposes the originating process, but does not promise that every
+        // physical/driver event has PID zero. Preserve identified physical senders.
+        // A process-originated pointer event without a physical sender must not
+        // become the anchor used to restore the local trackpad position: remote
+        // control tools may be moving that pointer from the other Mac.
+        let pointerPositionEvent: Bool
+        switch type {
+        case .mouseMoved,.leftMouseDragged,.rightMouseDragged,.otherMouseDragged,
+             .leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp:
+            pointerPositionEvent = true
+        default: pointerPositionEvent = false
+        }
+        let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
+        if pointerPositionEvent, sourcePID > 0 {
+            count("processPointer"); count("processPointerPID" + String(sourcePID))
+            if senders.isEmpty {
+                count("syntheticPointer"); count("syntheticPointerType" + String(type.rawValue))
+                count("syntheticPointerPID" + String(sourcePID))
+                count("unidentified"); count("unidentifiedType" + String(type.rawValue))
+                return Unmanaged.passUnretained(event)
+            }
+        }
         let now = ProcessInfo.processInfo.systemUptime
         let physicalGesture = gesture && !gestureAllowed.isDisjoint(with:senders)
         if physicalGesture { lastPhysicalGestureAt = now }

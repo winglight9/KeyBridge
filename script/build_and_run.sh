@@ -26,8 +26,8 @@ cat > "$KEYBRIDGE_APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>KeyBridge</string>
 <key>CFBundleIconFile</key><string>KeyBridgeAppIcon.icns</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>3</string>
+<key>CFBundleShortVersionString</key><string>1.1</string>
+<key>CFBundleVersion</key><string>4</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>LSUIElement</key><true/>

@@ -33,7 +33,7 @@ final class InputInjector {
             flags = CGEventFlags(rawValue: packet.flags); event.flags = flags
             event.setIntegerValueField(.keyboardEventAutorepeat, value: packet.isRepeat ? 1 : 0)
             if packet.down { keys.insert(packet.code) } else { keys.remove(packet.code) }
-            event.post(tap: .cghidEventTap)
+            post(event, at: .cghidEventTap)
         case .move:
             let old = currentPointer()
             let point = clamp(CGPoint(x: old.x + packet.dx, y: old.y + packet.dy))
@@ -45,7 +45,7 @@ final class InputInjector {
             event?.setIntegerValueField(.mouseEventDeltaX, value: Int64(packet.dx.rounded()))
             event?.setIntegerValueField(.mouseEventDeltaY, value: Int64(packet.dy.rounded()))
             event?.flags = flags
-            event?.post(tap: .cghidEventTap)
+            post(event, at: .cghidEventTap)
         case .button:
             let point = currentPointer()
             let type: CGEventType = packet.code == 1 ? (packet.down ? .rightMouseDown : .rightMouseUp) : (packet.down ? .leftMouseDown : .leftMouseUp)
@@ -55,13 +55,13 @@ final class InputInjector {
                 lastClick = now; lastPoint = point; buttons.insert(packet.code)
             } else { buttons.remove(packet.code) }
             let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: packet.code == 1 ? .right : .left)
-            event?.flags = flags; event?.setIntegerValueField(.mouseEventClickState, value: clickCount); event?.post(tap: .cghidEventTap)
+            event?.flags = flags; event?.setIntegerValueField(.mouseEventClickState, value: clickCount); post(event, at: .cghidEventTap)
         case .scroll:
             scrollX += packet.dx; scrollY += packet.dy
             let x = Int32(scrollX), y = Int32(scrollY); scrollX -= Double(x); scrollY -= Double(y)
             guard x != 0 || y != 0 else { return }
             let event = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0)
-            event?.flags = flags; event?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1); event?.post(tap: .cghidEventTap)
+            event?.flags = flags; event?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1); post(event, at: .cghidEventTap)
         case .gesture:
             guard let bytes = packet.nativeEvent, let event = NativeGestureEvent.decode(bytes) else { return }
             statistics["gestureAppKitType" + String(NSEvent(cgEvent:event)?.type.rawValue ?? 0), default:0] += 1
@@ -84,11 +84,19 @@ final class InputInjector {
         keys.removeAll(); buttons.removeAll(); scrollX = 0; scrollY = 0; flags = []
         cursor = nil; postedPositions.removeAll(); lastMoveAt = 0
     }
+    /// Mark every replay, including releases, before it reaches other event taps.
+    /// Another remote-control app can replace this metadata, so this is not a
+    /// guarantee against a loop spanning a separate remote-control connection.
+    private func post(_ event: CGEvent?, at tap: CGEventTapLocation) {
+        guard let event else { return }
+        event.setIntegerValueField(.eventSourceUserData, value:NativeGestureEvent.replayMarker)
+        event.post(tap:tap)
+    }
     private func postNativeGesture(_ event: CGEvent) {
         let current = CGEvent(source:nil)
         NativeGestureEvent.prepareForReplay(event,source:source,at:current?.location ?? .zero,timestamp:current?.timestamp ?? 0)
         // Quartz gesture payloads are already interpreted events; replay at the session layer.
-        event.post(tap:.cgSessionEventTap)
+        post(event, at:.cgSessionEventTap)
         statistics["gesturePosted", default:0] += 1
     }
     private func currentPointer() -> CGPoint {

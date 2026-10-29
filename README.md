@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v0.2.0-beta.2](https://github.com/winglight9/KeyBridge/releases/tag/v0.2.0-beta.2) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.1](https://github.com/winglight9/KeyBridge/releases/tag/v1.1) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -51,7 +51,7 @@ Native gesture forwarding preserves the gesture event for the destination Mac an
 - **Mac mini（2024，M4 / M4 Pro）必须接背面接口。** M4 背面为三个雷雳 4，M4 Pro 背面为三个雷雳 5；前面两个 USB-C 仅支持最高 10 Gb/s 的 USB 3，不提供这里所需的雷雳连接。
 - 仅写“全功能 Type-C”“100 W / 240 W”“支持视频”“10 Gb/s”，不足以确认能建立雷雳网桥。
 
-KeyBridge reports observed configuration, link and network states. A missing link alone cannot identify a cable’s exact capabilities. See [cable selection and wired diagnosis](docs/setup.md#cable-and-ports--线材与接口) and the [beta.2 release notes](docs/releases/v0.2.0-beta.2.md).
+KeyBridge reports observed configuration, link and network states. A missing link alone cannot identify a cable’s exact capabilities. See [cable selection and wired diagnosis](docs/setup.md#cable-and-ports--线材与接口) and the [1.1 release notes](docs/releases/v1.1.md).
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
