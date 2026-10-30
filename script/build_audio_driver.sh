@@ -24,5 +24,5 @@ xcrun ar rcs "$KEYBRIDGE_AUDIO_OUT/libKeyBridgeAudioWriter.a" "$KEYBRIDGE_AUDIO_
 # Ad-hoc signing is for local experimental builds; release identity can be supplied explicitly.
 codesign --force --sign "${KEYBRIDGE_AUDIO_SIGN_IDENTITY:--}" --timestamp=none "$KEYBRIDGE_AUDIO_BUNDLE"
 /usr/bin/pkgbuild --root "$KEYBRIDGE_AUDIO_STAGE" --install-location / --ownership recommended \
-  --identifier org.keybridge.audio.microphone.pkg --version 1.3 "$KEYBRIDGE_AUDIO_OUT/KeyBridge-Microphone.pkg"
+  --identifier org.keybridge.audio.microphone.pkg --version 1.4 "$KEYBRIDGE_AUDIO_OUT/KeyBridge-Microphone.pkg"
 printf '%s\n' "$KEYBRIDGE_AUDIO_OUT/KeyBridge-Microphone.pkg"

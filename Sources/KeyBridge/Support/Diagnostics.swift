@@ -9,7 +9,7 @@ enum Diagnostics {
     static var statusFile: URL { directory.appendingPathComponent("status.json") }
     static func write(store: BridgeStore) {
         let dictionary: [String:Any] = [
-            "version":"1.3", "updatedAt":ISO8601DateFormatter().string(from:Date()),
+            "version":"1.4", "updatedAt":ISO8601DateFormatter().string(from:Date()),
             "microphone":store.microphoneDiagnostics,
             "networkName":store.local.name, "mode":store.mode.rawValue,
             "state":String(describing:store.phase), "authenticated":store.ready,

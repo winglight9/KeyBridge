@@ -1,10 +1,10 @@
-# 有线麦克风共享 / Wired microphone sharing · 1.3 experimental
+# 有线麦克风共享 / Wired microphone sharing · 1.4 experimental
 
-本文记录 1.3 首版方案、安装要求和验收边界；不是功能已安装或已实测可用的声明。
+本文记录 1.4 首版方案、安装要求和验收边界；不是功能已安装或已实测可用的声明。
 
 ## 在 M1 Pro → Mac mini 上启用
 
-两台 Mac 都更新到 1.3，将应用放在 `/Applications/KeyBridge.app`。在「设备」选择 M1 Pro；麦克风方向与此来源一致，接收到已配对的另一台 Mac，与键盘的「应用于」目标独立。
+两台 Mac 都更新到 1.4，将应用放在 `/Applications/KeyBridge.app`。在「设备」选择 M1 Pro；麦克风方向与此来源一致，接收到已配对的另一台 Mac，与键盘的「应用于」目标独立。
 
 1. 在任一台 Mac 的键桥菜单中，找到「原生多指手势」下方的 **「共享麦克风 · 实验功能」**，点击勾选。
 2. 软件检查有线连接、两端版本、接收组件和来源麦克风权限。未就绪时保持不勾选，只在需要时显示安装／授权提示；完成后自动继续准备。
@@ -76,3 +76,11 @@ Apple 的 `AVAudioEngine.inputNode` 支持连接下游节点或安装录音 tap 
 5. [Creating an Audio Server Driver Plug-in](https://developer.apple.com/documentation/coreaudio/creating-an-audio-server-driver-plug-in)
 6. [Creating an audio device driver](https://developer.apple.com/documentation/audiodriverkit/creating-an-audio-device-driver)
 7. [Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+
+## 1.4 接收组件更新
+
+旧组件在 macOS 15.8.1 的系统音频账户下使用 `PROC_PIDTBSDINFO` 查询另一用户的键桥进程，会返回 `EPERM`，导致首次握手返回 Core Audio `nope`（1852797029）。在 Mac mini 上以相同音频账户执行的诊断确认了该查询失败；改用内核公开的 `KERN_PROC_PID` 查询后，用户身份、路径及完整代码签名校验全部通过。
+
+1.4 保留控制台用户、固定应用路径、签名及 PID 启动时间校验，并补充驱动版本、失败步骤与原始错误码。若检测到已加载的旧组件，勾选共享时会引导更新接收组件；更新文件不等于音频服务已加载新组件，需在方便时重启接收端后重新勾选。不会自动重启音频服务或电脑。
+
+此修复已验证账户环境下的身份校验兼容性；更新组件加载后的完整握手和实际语音应用收音仍须确认。

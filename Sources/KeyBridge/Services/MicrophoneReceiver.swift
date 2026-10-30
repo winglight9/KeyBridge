@@ -25,6 +25,18 @@ final class MicrophoneReceiver {
         }
         return status == noErr ? result : AudioObjectID(kAudioObjectUnknown)
     }
+    static func diagnostics(device: AudioObjectID? = nil) -> [String:Any] {
+        let device = device ?? findDevice()
+        guard device != kAudioObjectUnknown else { return [:] }
+        var value: Unmanaged<CFDictionary>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFDictionary>?>.size)
+        var address = AudioObjectPropertyAddress(mSelector: 0x6b627374, mScope:kAudioObjectPropertyScopeGlobal, mElement:kAudioObjectPropertyElementMain)
+        let status = withUnsafeMutablePointer(to:&value) { pointer in
+            AudioObjectGetPropertyData(device, &address, 0, nil, &size, pointer)
+        }
+        guard status == noErr, let value else { return [:] }
+        return value.takeRetainedValue() as NSDictionary as? [String:Any] ?? [:]
+    }
     static var available: Bool { findDevice() != kAudioObjectUnknown }
     func start(streamID: String, completion: @escaping (String?) -> Void) {
         lock.lock(); generation = streamID; lock.unlock()
@@ -36,8 +48,10 @@ final class MicrophoneReceiver {
             }
             session = UInt64.random(in: 1...UInt64.max); sequence = 0
             let status = write(flags: 1, samples: [])
+            let details = status == noErr ? [:] : Self.diagnostics(device:device)
             if status != noErr { end() }
-            DispatchQueue.main.async { completion(status == noErr ? nil : "Virtual microphone rejected connection (\(status)).") }
+            let reason = "Virtual microphone rejected connection (\(status)); authentication stage=\(details["authenticationStage"] ?? "unavailable"), code=\(details["authenticationCode"] ?? "unavailable"), callerPID=\(details["callerPID"] ?? "unavailable")."
+            DispatchQueue.main.async { completion(status == noErr ? nil : reason) }
         }
     }
     func push(_ pcm: Data, accepted: @escaping () -> Void) {

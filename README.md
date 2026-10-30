@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v1.3](https://github.com/winglight9/KeyBridge/releases/tag/v1.3) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.4](https://github.com/winglight9/KeyBridge/releases/tag/v1.4) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -56,7 +56,7 @@ KeyBridge reports observed configuration, link and network states. A missing lin
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
-## Experimental wired microphone / 实验性有线麦克风 · 1.3
+## Experimental wired microphone / 实验性有线麦克风 · 1.4
 
 Enable **Share microphone · Experimental** below the native-gestures option on either Mac. Setup guides connection, receiver-component installation and source permission as needed. Both switches stay off until capture starts and the receiver accepts audio; switching off either end stops sharing.
 
@@ -77,7 +77,7 @@ Share one Mac’s microphone with the paired Mac over the **encrypted wired conn
 - 在接收端语音应用中选择 **KeyBridge Microphone**；软件**不会自动修改系统默认麦克风**。
 - 断线立即停止采集，重连后需手动开启。功能**尚未完成双机实机验收**，不承诺所有语音应用或系统版本均兼容。
 
-[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.3 release notes / 1.3 发布说明](docs/release-1.3.md)
+[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.4 release notes / 1.4 发布说明](docs/release-1.4.md)
 
 ## Recovery and privacy / 恢复与隐私
 

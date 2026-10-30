@@ -14,6 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/sysctl.h>
+#include <sys/proc.h>
+#include <errno.h>
+#include <os/log.h>
 #include <sys/stat.h>
 
 _Static_assert(sizeof(KBAudioPacketHeader) == 32, "IPC header layout");
@@ -29,6 +33,12 @@ static pthread_mutex_t gWriterLock = PTHREAD_MUTEX_INITIALIZER;
 static pid_t gWriterPID;
 static UInt64 gWriterStartSec, gWriterStartUSec, gSession, gSequence, gWriteFrame;
 static uid_t gWriterUID;
+static _Atomic int gAuthStage = 0, gAuthCode = 0, gAuthPID = 0;
+static bool authFailure(int stage, int code, pid_t pid) {
+    atomic_store(&gAuthStage, stage); atomic_store(&gAuthCode, code); atomic_store(&gAuthPID, pid);
+    os_log_error(OS_LOG_DEFAULT, "KeyBridge microphone writer authentication rejected: stage=%{public}d code=%{public}d pid=%{public}d", stage, code, pid);
+    return false;
+}
 typedef struct { _Atomic UInt64 frame, epoch; _Atomic UInt32 bits; } RingSlot;
 static RingSlot gRing[kRingFrames];
 static AudioServerPlugInDriverRef gDriver;
@@ -51,30 +61,43 @@ static void clearRing(void) {
     gWriteFrame = 0;
 }
 static bool processInfo(pid_t pid, struct proc_bsdinfo *out) {
-    return pid > 0 && proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, out, sizeof(*out)) == sizeof(*out);
+    // PROC_PIDTBSDINFO rejects cross-user queries from _coreaudiod on macOS 15.
+    // KERN_PROC_PID exposes the kernel's public process identity without elevation.
+    if (pid <= 0 || !out) { errno = EINVAL; return false; }
+    struct kinfo_proc info; memset(&info, 0, sizeof(info)); size_t size = sizeof(info);
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
+    if (sysctl(mib, 4, &info, &size, NULL, 0) != 0) return false;
+    if (size != sizeof(info) || info.kp_proc.p_pid != pid) { errno = ESRCH; return false; }
+    memset(out, 0, sizeof(*out));
+    out->pbi_uid = info.kp_eproc.e_ucred.cr_uid;
+    out->pbi_start_tvsec = info.kp_proc.p_starttime.tv_sec;
+    out->pbi_start_tvusec = info.kp_proc.p_starttime.tv_usec;
+    return true;
 }
 static bool authenticatedWriter(pid_t pid, struct proc_bsdinfo *info) {
-    if (!processInfo(pid, info)) return false;
+    if (!processInfo(pid, info)) return authFailure(1, errno, pid);
     uid_t consoleUID = (uid_t)-1; gid_t consoleGID = 0;
     CFStringRef console = SCDynamicStoreCopyConsoleUser(NULL, &consoleUID, &consoleGID);
     if (console) CFRelease(console);
-    if (consoleUID == (uid_t)-1 || consoleUID == 0 || info->pbi_uid != consoleUID) return false;
+    if (consoleUID == (uid_t)-1 || consoleUID == 0 || info->pbi_uid != consoleUID) return authFailure(2, EACCES, pid);
     char path[PROC_PIDPATHINFO_MAXSIZE] = {0};
     if (proc_pidpath(pid, path, sizeof(path)) <= 0 ||
-        strcmp(path, "/Applications/KeyBridge.app/Contents/MacOS/KeyBridge") != 0) return false;
+        strcmp(path, "/Applications/KeyBridge.app/Contents/MacOS/KeyBridge") != 0) return authFailure(3, EACCES, pid);
     CFURLRef url = CFURLCreateWithFileSystemPath(NULL, CFSTR("/Applications/KeyBridge.app"), kCFURLPOSIXPathStyle, true);
     SecStaticCodeRef installed = NULL; SecRequirementRef requirement = NULL; SecCodeRef guest = NULL;
     CFNumberRef pidNumber = CFNumberCreate(NULL, kCFNumberIntType, &pid);
     const void *keys[] = { kSecGuestAttributePid }; const void *values[] = { pidNumber };
     CFDictionaryRef attributes = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    OSStatus status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &installed);
-    if (status == noErr) status = SecStaticCodeCheckValidity(installed, kSecCSStrictValidate, NULL);
-    if (status == noErr) status = SecCodeCopyDesignatedRequirement((SecCodeRef)installed, kSecCSDefaultFlags, &requirement);
-    if (status == noErr) status = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &guest);
-    if (status == noErr) status = SecCodeCheckValidity(guest, kSecCSStrictValidate, requirement);
+    int stage = 4; OSStatus status = SecStaticCodeCreateWithPath(url, kSecCSDefaultFlags, &installed);
+    if (status == noErr) { stage = 5; status = SecStaticCodeCheckValidity(installed, kSecCSStrictValidate, NULL); }
+    if (status == noErr) { stage = 6; status = SecCodeCopyDesignatedRequirement((SecCodeRef)installed, kSecCSDefaultFlags, &requirement); }
+    if (status == noErr) { stage = 7; status = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &guest); }
+    if (status == noErr) { stage = 8; status = SecCodeCheckValidity(guest, kSecCSStrictValidate, requirement); }
     if (guest) CFRelease(guest); if (requirement) CFRelease(requirement); if (installed) CFRelease(installed);
     CFRelease(attributes); CFRelease(pidNumber); CFRelease(url);
-    return status == noErr;
+    if (status != noErr) return authFailure(stage, status, pid);
+    atomic_store(&gAuthStage, 0); atomic_store(&gAuthCode, 0); atomic_store(&gAuthPID, pid);
+    return true;
 }
 static bool sameWriter(pid_t pid) {
     struct proc_bsdinfo info; struct stat console;
@@ -287,13 +310,18 @@ static OSStatus getProperty(AudioServerPlugInDriverRef d, AudioObjectID o, pid_t
         }
         case KB_AUDIO_WRITE_SELECTOR: { CFDataRef v = CFDataCreate(NULL, NULL, 0); RETURN_VALUE(CFDataRef, v); }
         case KB_AUDIO_STATUS_SELECTOR: {
-            const void *keys[] = { CFSTR("protocol"), CFSTR("format"), CFSTR("receiving") };
+            const void *keys[] = { CFSTR("protocol"), CFSTR("format"), CFSTR("receiving"), CFSTR("implementationVersion"), CFSTR("driverVersion"), CFSTR("authenticationStage"), CFSTR("authenticationCode"), CFSTR("callerPID") };
+            int implementation = 2, stage = atomic_load(&gAuthStage), code = atomic_load(&gAuthCode), caller = atomic_load(&gAuthPID);
+            CFNumberRef impl = CFNumberCreate(NULL, kCFNumberIntType, &implementation);
+            CFNumberRef stageNumber = CFNumberCreate(NULL, kCFNumberIntType, &stage);
+            CFNumberRef codeNumber = CFNumberCreate(NULL, kCFNumberIntType, &code);
+            CFNumberRef callerNumber = CFNumberCreate(NULL, kCFNumberIntType, &caller);
             int protocol = 1; CFNumberRef version = CFNumberCreate(NULL, kCFNumberIntType, &protocol);
             UInt64 last = atomic_load(&gLastPacket), now = mach_absolute_time();
             bool active = atomic_load(&gEnabled) && last && now >= last && (double)(now - last) < gTicksPerFrame * KB_AUDIO_SAMPLE_RATE / 4;
-            const void *values[] = { version, CFSTR("48000/mono/float32"), active ? kCFBooleanTrue : kCFBooleanFalse };
-            CFDictionaryRef v = CFDictionaryCreate(NULL, keys, values, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            CFRelease(version); RETURN_VALUE(CFDictionaryRef, v);
+            const void *values[] = { version, CFSTR("48000/mono/float32"), active ? kCFBooleanTrue : kCFBooleanFalse, impl, CFSTR("1.4"), stageNumber, codeNumber, callerNumber };
+            CFDictionaryRef v = CFDictionaryCreate(NULL, keys, values, 8, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            CFRelease(version); CFRelease(impl); CFRelease(stageNumber); CFRelease(codeNumber); CFRelease(callerNumber); RETURN_VALUE(CFDictionaryRef, v);
         }
     }
     return kAudioHardwareUnknownPropertyError;
