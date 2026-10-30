@@ -13,7 +13,7 @@ script/build_audio_driver.sh
 Output: `outputs/audio-driver/KeyBridge-Microphone.pkg`. Bundle this file in
 `KeyBridge.app/Contents/Resources/KeyBridge-Microphone.pkg` **before** signing the
 app. The package installs only `KeyBridgeMicrophone.driver` to
-`/Library/Audio/Plug-Ins/HAL`; it has no postinstall script.
+`/Library/Audio/Plug-Ins/HAL`; its postinstall hook reloads only the isolated KeyBridge microphone helper.
 
 To let the user explicitly install the component:
 
@@ -22,8 +22,11 @@ script/install_audio_driver.sh
 ```
 
 Apple's Installer displays administrator authorization. The helper intentionally
-does not restart coreaudiod: if the device does not appear, restart the Mac when
-convenient. Choose KeyBridge Microphone inside the recording/call application.
+does not restart coreaudiod or the Mac. After installation, the isolated KeyBridge
+HAL helper is reloaded automatically; its virtual input briefly disappears and returns.
+This was observed on the target Mac mini running macOS 15.8.1, with the main
+coreaudiod process and the other driver helper PIDs unchanged. Other macOS versions
+remain unverified; if reloading fails, collect diagnostics rather than requesting a reboot. Choose KeyBridge Microphone inside the recording/call application.
 The receiving app's microphone privacy permission still applies.
 
 `KEYBRIDGE_AUDIO_SIGN_IDENTITY` optionally selects a driver signing identity.

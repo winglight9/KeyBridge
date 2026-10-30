@@ -6,9 +6,9 @@ enum CompactInput {
         guard message.kind == .input else { return nil }
         // Gesture events retain their complete Quartz payload and use the encrypted JSON envelope.
         // Ordinary key/motion packets keep the existing forty-byte representation.
-        if message.input?.kind == .gesture {
+        if message.input?.kind == .gesture || message.input?.kind == .nativeKey {
             guard message.input?.isValid == true, let token = message.route?.token, UUID(uuidString:token) != nil else {
-                throw BridgeError.invalid("Invalid native gesture route")
+                throw BridgeError.invalid("Invalid native input route")
             }
             return nil
         }

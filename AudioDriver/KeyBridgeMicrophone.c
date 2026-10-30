@@ -319,7 +319,7 @@ static OSStatus getProperty(AudioServerPlugInDriverRef d, AudioObjectID o, pid_t
             int protocol = 1; CFNumberRef version = CFNumberCreate(NULL, kCFNumberIntType, &protocol);
             UInt64 last = atomic_load(&gLastPacket), now = mach_absolute_time();
             bool active = atomic_load(&gEnabled) && last && now >= last && (double)(now - last) < gTicksPerFrame * KB_AUDIO_SAMPLE_RATE / 4;
-            const void *values[] = { version, CFSTR("48000/mono/float32"), active ? kCFBooleanTrue : kCFBooleanFalse, impl, CFSTR("1.4"), stageNumber, codeNumber, callerNumber };
+            const void *values[] = { version, CFSTR("48000/mono/float32"), active ? kCFBooleanTrue : kCFBooleanFalse, impl, CFSTR("1.5"), stageNumber, codeNumber, callerNumber };
             CFDictionaryRef v = CFDictionaryCreate(NULL, keys, values, 8, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
             CFRelease(version); CFRelease(impl); CFRelease(stageNumber); CFRelease(codeNumber); CFRelease(callerNumber); RETURN_VALUE(CFDictionaryRef, v);
         }

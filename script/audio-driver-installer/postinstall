@@ -1,0 +1,20 @@
+#!/bin/sh
+# Reload only KeyBridge's isolated HAL helper after an administrator-approved install.
+# Never signals coreaudiod or any other audio component, and never reboots the Mac.
+set -eu
+KEYBRIDGE_AUDIO_UID="$(/usr/bin/id -u _coreaudiod 2>/dev/null || true)"
+if [ -z "$KEYBRIDGE_AUDIO_UID" ]; then exit 0; fi
+/bin/ps -axo pid=,uid=,comm= | /usr/bin/awk -v audio_uid="$KEYBRIDGE_AUDIO_UID" '
+    $2 == audio_uid && $0 ~ /Core Audio Driver \(KeyBridgeMicrophone\.driver\)$/ { print $1 }
+' | while IFS= read -r KEYBRIDGE_AUDIO_PID; do
+    # Recheck the process immediately before signalling it; do not use broad killall.
+    KEYBRIDGE_AUDIO_CURRENT="$(/bin/ps -p "$KEYBRIDGE_AUDIO_PID" -o uid=,comm= || true)"
+    if printf '%s\n' "$KEYBRIDGE_AUDIO_CURRENT" | /usr/bin/awk -v audio_uid="$KEYBRIDGE_AUDIO_UID" '
+        $1 == audio_uid && $0 ~ /Core Audio Driver \(KeyBridgeMicrophone\.driver\)$/ { found=1 }
+        END { exit !found }
+    '; then
+        printf 'Reloading KeyBridge microphone helper (PID %s).\n' "$KEYBRIDGE_AUDIO_PID"
+        /bin/kill -KILL "$KEYBRIDGE_AUDIO_PID" 2>/dev/null || true
+    fi
+done
+exit 0

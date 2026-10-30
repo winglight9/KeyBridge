@@ -10,15 +10,16 @@ public struct DeviceIdentity: Codable, Equatable {
     public var nativeGestureVersion: Int?
     /// Absent in older peers; microphone messages require v1 support at both ends.
     public var microphoneVersion: Int?
-    public init(id: String, name: String, keyboard: Bool, trackpad: Bool, canReceive: Bool, nativeGestureVersion: Int? = NativeGestureEvent.version, microphoneVersion: Int? = AudioPacket.version) {
+    public var nativeKeyboardVersion: Int?
+    public init(id: String, name: String, keyboard: Bool, trackpad: Bool, canReceive: Bool, nativeGestureVersion: Int? = NativeGestureEvent.version, microphoneVersion: Int? = AudioPacket.version, nativeKeyboardVersion: Int? = NativeKeyboardEvent.version) {
         self.id = id; self.name = name; self.keyboard = keyboard
         self.trackpad = trackpad; self.canReceive = canReceive
-        self.nativeGestureVersion = nativeGestureVersion; self.microphoneVersion = microphoneVersion
+        self.nativeGestureVersion = nativeGestureVersion; self.microphoneVersion = microphoneVersion; self.nativeKeyboardVersion = nativeKeyboardVersion
     }
 }
 
 public struct InputPacket: Codable, Equatable {
-    public enum Kind: String, Codable { case key, move, button, scroll, gesture }
+    public enum Kind: String, Codable { case key, move, button, scroll, gesture, nativeKey }
     public var kind: Kind
     public var code: Int
     public var down: Bool
@@ -40,6 +41,10 @@ public struct InputPacket: Codable, Equatable {
             guard NativeGestureEvent.eventTypes.contains(UInt32(clamping:code)), !down, !isRepeat, dx == 0, dy == 0,
                   let nativeEvent else { return false }
             return NativeGestureEvent.decode(nativeEvent)?.type.rawValue == UInt32(clamping:code)
+        }
+        if kind == .nativeKey {
+            guard !down, !isRepeat, dx == 0, dy == 0, let nativeEvent else { return false }
+            return NativeKeyboardEvent.decode(nativeEvent)?.type.rawValue == UInt32(clamping:code)
         }
         return nativeEvent == nil
     }

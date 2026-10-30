@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v1.4](https://github.com/winglight9/KeyBridge/releases/tag/v1.4) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.5](https://github.com/winglight9/KeyBridge/releases/tag/v1.5) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -56,7 +56,7 @@ KeyBridge reports observed configuration, link and network states. A missing lin
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
-## Experimental wired microphone / 实验性有线麦克风 · 1.4
+## Experimental wired microphone / 实验性有线麦克风 · 1.5
 
 Enable **Share microphone · Experimental** below the native-gestures option on either Mac. Setup guides connection, receiver-component installation and source permission as needed. Both switches stay off until capture starts and the receiver accepts audio; switching off either end stops sharing.
 
@@ -66,18 +66,18 @@ Enable **Share microphone · Experimental** below the native-gestures option on 
 Share one Mac’s microphone with the paired Mac over the **encrypted wired connection**. Audio uses 48 kHz mono PCM in 20 ms frames; frame duration is not an end-to-end latency promise. **Bluetooth audio is not supported.**
 
 - Microphone sharing is **off by default**, with separate enable/mute controls; choosing a keyboard destination does not turn on the microphone or change its destination.
-- The source needs microphone permission. The receiving Mac needs an **optional virtual-microphone component**, installed once with administrator approval. macOS may require you to restart that Mac to load it; no audio-service or computer restart happens silently.
+- The source needs microphone permission. The receiving Mac needs an **optional virtual-microphone component**, installed once with administrator approval. the installer reloads only KeyBridge’s virtual microphone automatically, without restarting the Mac or the system audio service.
 - Choose **KeyBridge Microphone** in your receiving voice app. KeyBridge does **not** change the system’s default microphone automatically.
 - Disconnecting stops capture; reconnecting does not resume it automatically. This feature has **not yet completed physical two-Mac acceptance testing**, and compatibility with every voice app or macOS version is not established.
 
 通过**已配对、加密的有线连接**，把一台 Mac 的麦克风提供给另一台。音频为 48 kHz 单声道 PCM、每帧 20 ms；帧长不是端到端延迟承诺。**蓝牙不支持音频。**
 
 - 麦克风**默认关闭**，勾选开启／取消即停止；更换键盘控制目标不会自动开启麦克风或改变音频去向。
-- 来源端需要麦克风权限。接收端需选装**虚拟麦克风组件**，由管理员批准一次安装；系统可能需要你在方便时重启接收端才能载入，不会静默重启音频服务或电脑。
+- 来源端需要麦克风权限。接收端需选装**虚拟麦克风组件**，由管理员批准一次安装；安装后会自动局部重新加载键桥虚拟麦克风，无需重启电脑，也不会重启整个系统音频服务。
 - 在接收端语音应用中选择 **KeyBridge Microphone**；软件**不会自动修改系统默认麦克风**。
 - 断线立即停止采集，重连后需手动开启。功能**尚未完成双机实机验收**，不承诺所有语音应用或系统版本均兼容。
 
-[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.4 release notes / 1.4 发布说明](docs/release-1.4.md)
+[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.5 release notes / 1.5 发布说明](docs/release-1.5.md)
 
 ## Recovery and privacy / 恢复与隐私
 

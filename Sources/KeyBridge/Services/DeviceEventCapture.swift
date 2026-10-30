@@ -50,6 +50,7 @@ final class DeviceEventCapture {
     var onFailure: ((String) -> Void)?
     /// Enabled explicitly only when the paired receiver understands opaque gesture events.
     var gesturesEnabled = false
+    var nativeKeyboardEnabled = false
     private let lock = NSLock()
     private var active = false
     private var lease = 0.0
@@ -84,7 +85,7 @@ final class DeviceEventCapture {
         worker = thread; thread.start()
     }
     private func run(completion: @escaping (Result<Void,Error>) -> Void) {
-        let types: [CGEventType] = [.keyDown,.keyUp,.flagsChanged,.mouseMoved,.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.leftMouseDragged,.rightMouseDragged,.scrollWheel]
+        let types: [CGEventType] = [CGEventType(rawValue:NativeKeyboardEvent.systemType)!, .keyDown,.keyUp,.flagsChanged,.mouseMoved,.leftMouseDown,.leftMouseUp,.rightMouseDown,.rightMouseUp,.leftMouseDragged,.rightMouseDragged,.scrollWheel]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
         guard let port = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:mask,callback: { _,type,event,context in
             guard let context else { return Unmanaged.passUnretained(event) }
@@ -102,12 +103,23 @@ final class DeviceEventCapture {
         // precedes gesture recognition, while pointer suppression must happen at HID.
         var gesturePort: CFMachPort?
         var gestureSource: CFRunLoopSource?
-        if gesturesEnabled, !gestureAllowed.isEmpty {
+        if (gesturesEnabled && !gestureAllowed.isEmpty) || nativeKeyboardEnabled {
             let callback: CGEventTapCallBack = { _,type,event,context in
                 guard let context else { return Unmanaged.passUnretained(event) }
+                // Some special keys are generated above the HID tap. Observe only
+                // the native-key subset at session level; ordinary keys stay on HID.
+                if type == .keyDown || type == .keyUp || type == .flagsChanged {
+                    guard NativeKeyboardEvent.accepts(event) else { return Unmanaged.passUnretained(event) }
+                }
                 return Unmanaged<DeviceEventCapture>.fromOpaque(context).takeUnretainedValue().handle(type,event:event)
             }
-            let gestureMask = NativeGestureEvent.eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) }
+            var gestureMask = gesturesEnabled ? NativeGestureEvent.eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) } : 0
+            if nativeKeyboardEnabled {
+                for keyType in [CGEventType.keyDown, .keyUp, .flagsChanged, CGEventType(rawValue:NativeKeyboardEvent.systemType)!] {
+                    gestureMask |= CGEventMask(1) << keyType.rawValue
+                }
+                count("nativeKeyboardTapSession")
+            }
             gesturePort = CGEvent.tapCreate(tap:.cgSessionEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:gestureMask,callback:callback,userInfo:Unmanaged.passUnretained(self).toOpaque())
             count(gesturePort == nil ? "gestureTapUnavailable" : "gestureTapSession")
             if let gesturePort {
@@ -166,6 +178,16 @@ final class DeviceEventCapture {
         lock.lock(); let enabled = active; lock.unlock()
         guard enabled else { return Unmanaged.passUnretained(event) }
         guard event.getIntegerValueField(.eventSourceUserData) != NativeGestureEvent.replayMarker else { return Unmanaged.passUnretained(event) }
+        if type == .flagsChanged, event.getIntegerValueField(.keyboardEventKeycode) == 63 { count("fnSeen") }
+        if type == .keyDown || type == .keyUp {
+            let specialCode = event.getIntegerValueField(.keyboardEventKeycode)
+            if specialCode >= 128 { count("extendedKeySeenCode" + String(specialCode)) }
+            if specialCode == 96 { count("f5Seen") }
+        }
+        if type.rawValue == NativeKeyboardEvent.systemType {
+            count("systemKeySeen")
+            if let ns = NSEvent(cgEvent:event) { count("systemKeySubtype" + String(ns.subtype.rawValue)); count("systemKeyCode" + String((ns.data1 >> 16) & 0xffff)) }
+        }
         let gesture = NativeGestureEvent.isGesture(event)
         if gesture { count("gestureSeen") }
         if type == .scrollWheel { count("scrollSeen") }
@@ -223,12 +245,17 @@ final class DeviceEventCapture {
             }
             count("gestureForwarded"); onInput?(packet); return nil
         }
+        if nativeKeyboardEnabled, let packet = NativeKeyboardEvent.encode(event), packet.isValid {
+            count("nativeKeyboardForwarded"); count("nativeKeyboardType" + String(type.rawValue))
+            if type == .flagsChanged { count("fnForwarded") }
+            onInput?(packet); return nil
+        }
         let packet: InputPacket
         switch type {
         case .keyDown,.keyUp,.flagsChanged:
             let code = Int(event.getIntegerValueField(.keyboardEventKeycode))
             if code == 53, event.flags.contains([.maskCommand,.maskAlternate,.maskControl]) { abort("Emergency return to local input"); return Unmanaged.passUnretained(event) }
-            let down = type == .flagsChanged ? (code == 57 ? event.flags.contains(.maskAlphaShift) : CGEventSource.keyState(.hidSystemState,key:CGKeyCode(code))) : type == .keyDown
+            let down = type == .flagsChanged ? (code == 57 ? event.flags.contains(.maskAlphaShift) : code == 63 ? event.flags.contains(.maskSecondaryFn) : CGEventSource.keyState(.hidSystemState,key:CGKeyCode(code))) : type == .keyDown
             packet = InputPacket(.key,code:code,down:down,flags:event.flags.rawValue,isRepeat:event.getIntegerValueField(.keyboardEventAutorepeat) != 0)
             count("keyboard")
         case .mouseMoved,.leftMouseDragged,.rightMouseDragged:

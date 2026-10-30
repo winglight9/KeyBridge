@@ -14,4 +14,4 @@ else
   # Apple's Installer displays the component and asks for administrator authorization.
   /usr/bin/open -W "$KEYBRIDGE_AUDIO_PKG"
 fi
-printf '%s\n' 'The component does not change the default microphone. If KeyBridge Microphone is not listed yet, restart the Mac when convenient.'
+printf '%s\n' 'The component does not change the default microphone. The installer reloads only KeyBridge’s virtual microphone; no computer restart is requested.'

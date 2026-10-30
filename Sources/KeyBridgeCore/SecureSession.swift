@@ -48,6 +48,7 @@ public final class SecureSession {
             // adding an unknown field here would invalidate their signature check.
             var handshakeIdentity = identity
             handshakeIdentity.microphoneVersion = nil
+            handshakeIdentity.nativeKeyboardVersion = nil
             let body = HelloBody(version: 1, identity: handshakeIdentity, ephemeral: ephemeral.publicKey.rawRepresentation,
                                  signing: signingKey.publicKey.rawRepresentation, nonce: nonce)
             let signature = try signingKey.signature(for: encoder.encode(body))
@@ -72,6 +73,12 @@ public final class SecureSession {
             if let input = packet.message.input, !input.isValid { throw BridgeError.invalid("Invalid input event") }
             if packet.message.kind == .identity, let announced = packet.message.identity,
                announced.id == peer?.id { peer = announced }
+            if packet.message.input?.kind == .nativeKey {
+                guard identity.nativeKeyboardVersion == NativeKeyboardEvent.version,
+                      peer?.nativeKeyboardVersion == NativeKeyboardEvent.version else {
+                    throw BridgeError.invalid("Native keyboard support was not negotiated")
+                }
+            }
             try validateAudio(packet.message, inbound: true)
             onMessage?(packet.message)
         } catch { fail(error.localizedDescription) }
@@ -116,6 +123,7 @@ public final class SecureSession {
             guard identity.microphoneVersion == AudioPacket.version,
                   peer?.microphoneVersion == AudioPacket.version else { return }
         }
+        if message.input?.kind == .nativeKey, peer?.nativeKeyboardVersion != NativeKeyboardEvent.version { return }
         do { try validateAudio(message, inbound: false) }
         catch { return } // A stopped producer can still have a queued frame; leave input sharing alive.
         sendEncrypted(message)

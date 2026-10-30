@@ -11,6 +11,7 @@ final class InputInjector {
     private var lastPoint = CGPoint.zero
     private var clickCount: Int64 = 1
     private var flags = CGEventFlags()
+    private var lastNativeKeys: [Int:CGEvent] = [:]
     private var lastNativeGestures: [UInt32:CGEvent] = [:]
     private var cursor: CGPoint?
     private var postedPositions: [CGPoint] = []
@@ -29,7 +30,7 @@ final class InputInjector {
         switch packet.kind {
         case .key:
             guard let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(packet.code), keyDown: packet.down) else { return }
-            if [54,55,56,57,58,59,60,61,62].contains(packet.code) { event.type = .flagsChanged }
+            if [54,55,56,57,58,59,60,61,62,63].contains(packet.code) { event.type = .flagsChanged }
             flags = CGEventFlags(rawValue: packet.flags); event.flags = flags
             event.setIntegerValueField(.keyboardEventAutorepeat, value: packet.isRepeat ? 1 : 0)
             if packet.down { keys.insert(packet.code) } else { keys.remove(packet.code) }
@@ -62,6 +63,12 @@ final class InputInjector {
             guard x != 0 || y != 0 else { return }
             let event = CGEvent(scrollWheelEvent2Source: source, units: .pixel, wheelCount: 2, wheel1: y, wheel2: x, wheel3: 0)
             event?.flags = flags; event?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1); post(event, at: .cghidEventTap)
+        case .nativeKey:
+            guard let data = packet.nativeEvent, let event = NativeKeyboardEvent.decode(data) else { return }
+            flags = event.flags
+            let key = NativeKeyboardEvent.key(event)
+            lastNativeKeys[key] = NativeKeyboardEvent.isDown(event) ? event : nil
+            postNativeKey(event)
         case .gesture:
             guard let bytes = packet.nativeEvent, let event = NativeGestureEvent.decode(bytes) else { return }
             statistics["gestureAppKitType" + String(NSEvent(cgEvent:event)?.type.rawValue ?? 0), default:0] += 1
@@ -78,6 +85,12 @@ final class InputInjector {
                 }
             }
         }
+        if Self.allowed {
+            for key in lastNativeKeys.keys.sorted() {
+                if let event = lastNativeKeys[key], let released = NativeKeyboardEvent.releasedCopy(event) { postNativeKey(released) }
+            }
+        }
+        lastNativeKeys.removeAll()
         lastNativeGestures.removeAll()
         for key in keys.sorted() { apply(InputPacket(.key, code: key, down: false)) }
         for button in buttons.sorted() { apply(InputPacket(.button, code: button, down: false)) }
@@ -91,6 +104,13 @@ final class InputInjector {
         guard let event else { return }
         event.setIntegerValueField(.eventSourceUserData, value:NativeGestureEvent.replayMarker)
         event.post(tap:tap)
+    }
+    private func postNativeKey(_ event: CGEvent) {
+        let current = CGEvent(source:nil)
+        NativeGestureEvent.prepareForReplay(event,source:source,at:current?.location ?? .zero,timestamp:current?.timestamp ?? 0)
+        post(event, at:.cghidEventTap)
+        statistics["nativeKeyboardPosted", default:0] += 1
+        if event.type == .flagsChanged { statistics["fnPosted", default:0] += 1 }
     }
     private func postNativeGesture(_ event: CGEvent) {
         let current = CGEvent(source:nil)

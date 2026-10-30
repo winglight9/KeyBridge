@@ -41,7 +41,7 @@ final class BridgeStore: ObservableObject {
     private var stoppedMicrophoneStreams: [String] = []
     private var receiverStarting = false
     private var receiverInstallOffered = false
-    private var receiverRestartOffered = false
+    private var receiverReloadOffered = false
     var microphoneEnabled: Bool { microphoneState == "sending" || microphoneState == "receiving" }
     var microphonePreparing: Bool { microphoneNeedsConnection || microphoneRequestID != nil || microphoneState == "waiting" || microphoneState == "starting" }
     @Published private(set) var microphoneState = "off"
@@ -411,6 +411,7 @@ final class BridgeStore: ObservableObject {
                     self.session?.send(Message(.input, route: incoming, input: packet))
                 }
             }
+            capture.nativeKeyboardEnabled = peer?.nativeKeyboardVersion == NativeKeyboardEvent.version
             capture.gesturesEnabled = gestureForwardingEnabled && peer?.nativeGestureVersion == NativeGestureEvent.version
             capture.start { [weak self] result in
                 guard let self, self.captureStartingToken == token else { return }
@@ -549,16 +550,19 @@ final class BridgeStore: ObservableObject {
             let info = (try? Data(contentsOf:URL(fileURLWithPath:infoPath))).flatMap { try? PropertyListSerialization.propertyList(from:$0, format:nil) as? [String:Any] }
             let installedBuild = Int(info?["CFBundleVersion"] as? String ?? "0") ?? 0
             if installedBuild >= 2 {
-                microphoneSetupMessage = text("Finish installation and restart this Mac when convenient, then enable microphone sharing again.", "请完成安装，并在方便时重启本机，再勾选共享麦克风。")
+                microphoneSetupMessage = text("Waiting for the microphone component to reload…", "等待麦克风组件重新加载…")
                 session?.send(Message(.audioPreparing, detail:text("The updated receiving component needs to load on ", "请在接收端完成组件更新并重新加载：") + local.name, audio:AudioPacket(streamID:id)))
-                guard !receiverRestartOffered else { return }; receiverRestartOffered = true
-                MicrophoneSetupPrompt.show(title:text("Load the updated microphone component", "需要加载更新后的麦克风组件"), message:text("The updated component files are present, but the audio service is still using the old component or has not loaded it. Finish installation, restart this Mac when convenient, and check Share microphone again. KeyBridge will not restart audio or the Mac for you.", "更新后的组件文件已经存在，但音频服务仍在使用旧组件或尚未加载。请先完成安装，再方便时重启本机，然后重新勾选共享麦克风。键桥不会自动重启音频服务或电脑。"), action:text("OK", "知道了")) { _ in }
+                guard !receiverReloadOffered else { return }; receiverReloadOffered = true
+                MicrophoneSetupPrompt.show(title:text("Reload the microphone component", "重新加载麦克风组件"), message:text("The component is installed but the loaded copy is out of date. Continue in the system installer to repair and reload only KeyBridge’s virtual microphone. Its audio will briefly pause; the Mac will stay running.", "组件已安装，但当前加载的版本较旧。点击后通过系统安装器修复，并只重新加载键桥的虚拟麦克风；它的音频会短暂中断，电脑保持运行。"), action:text("Reload", "重新加载")) { [weak self] accepted in
+                    guard let self, self.incomingMicrophone == id else { return }
+                    if accepted { self.openMicrophoneInstaller() } else { self.stopMicrophone() }
+                }
                 return
             }
             microphoneSetupMessage = text("Waiting for the receiving component update on this Mac…", "等待本机麦克风接收组件更新…")
             session?.send(Message(.audioPreparing, detail:text("Complete the microphone component update on ", "请在接收端完成麦克风组件更新：") + local.name, audio:AudioPacket(streamID:id)))
             guard !receiverInstallOffered else { return }; receiverInstallOffered = true
-            MicrophoneSetupPrompt.show(title:text("Install or update the microphone component", "需要安装或更新麦克风组件"), message:text("The updated receiving component fixes macOS audio-service process validation. Continue in the system installer with administrator approval. After installation, restart this Mac when convenient and enable sharing again.", "新版接收组件修复了 macOS 音频服务的进程校验问题。请在系统安装器中批准安装；完成后方便时重启本机，再勾选共享麦克风。"), action:text("Install update", "安装更新")) { [weak self] accepted in
+            MicrophoneSetupPrompt.show(title:text("Install or update the microphone component", "需要安装或更新麦克风组件"), message:text("Approve the receiving component in the system installer. It will reload KeyBridge’s virtual microphone automatically, then setup continues. The virtual microphone may briefly pause; no Mac restart is needed.", "请在系统安装器中批准安装。完成后会自动重新加载键桥的虚拟麦克风并继续准备；虚拟麦克风可能短暂中断，无需重启电脑。"), action:text("Install update", "安装更新")) { [weak self] accepted in
                 guard let self, self.incomingMicrophone == id else { return }
                 if accepted { self.openMicrophoneInstaller() } else { self.stopMicrophone() }
             }
@@ -622,7 +626,7 @@ final class BridgeStore: ObservableObject {
         if let id { stoppedMicrophoneStreams.append(id); stoppedMicrophoneStreams = Array(stoppedMicrophoneStreams.suffix(32)) }
         outgoingMicrophone = nil; incomingMicrophone = nil; microphoneRequestID = nil
         microphoneNeedsConnection = false; microphonePermissionPending = false
-        receiverStarting = false; receiverInstallOffered = false; receiverRestartOffered = false
+        receiverStarting = false; receiverInstallOffered = false; receiverReloadOffered = false
         microphoneSetupMessage = ""
         microphone.stop(); microphoneReceiver.stop(); microphoneState = "off"
         if send, let id { session?.send(Message(.audioStop, audio: AudioPacket(streamID:id))) }
