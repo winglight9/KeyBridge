@@ -40,7 +40,7 @@ final class MicrophoneReceiver {
             DispatchQueue.main.async { completion(status == noErr ? nil : "Virtual microphone rejected connection (\(status)).") }
         }
     }
-    func push(_ pcm: Data) {
+    func push(_ pcm: Data, accepted: @escaping () -> Void) {
         lock.lock()
         guard let token = generation, pending < 3 else { lock.unlock(); return }
         pending += 1; lock.unlock()
@@ -54,7 +54,9 @@ final class MicrophoneReceiver {
             }
             sequence += 1
             let status = write(flags: 0, samples: samples)
-            if status != noErr {
+            if status == noErr { DispatchQueue.main.async { [weak self] in
+                guard self?.isCurrent(token) == true else { return }; accepted()
+            } } else {
                 end(); DispatchQueue.main.async { [weak self] in self?.onFailure?(token, "Virtual microphone write failed (\(status)).") }
             }
         }

@@ -61,42 +61,6 @@ struct BridgePopover: View {
             }.frame(maxWidth:.infinity, alignment:.leading).padding(10)
                 .background((store.phase == .unstable ? Color.orange : Color.secondary).opacity(0.07), in: RoundedRectangle(cornerRadius: 9))
 
-            DisclosureGroup {
-                VStack(alignment: .leading, spacing: 7) {
-                    Label(store.microphoneStatus, systemImage:store.microphoneActive ? "mic.fill" : "mic.slash")
-                        .font(.caption).foregroundStyle(store.microphoneActive ? Color.orange : Color.secondary)
-                    Text(store.text("Wired only · Separate from keyboard sharing. Select KeyBridge Microphone in the receiving app.", "仅有线 · 独立于键盘共享。在接收端应用中选择“KeyBridge Microphone”。"))
-                        .font(.caption2).foregroundStyle(.secondary)
-                    if !store.microphoneError.isEmpty {
-                        Text(store.microphoneError).font(.caption2).foregroundStyle(.red).textSelection(.enabled)
-                    }
-                    HStack {
-                        if store.microphoneActive {
-                            Button(store.text("Stop microphone", "停止麦克风")) { store.stopMicrophone() }
-                            if store.microphoneState == "sending" {
-                                Button(store.text("Mute", "静音")) { store.muteMicrophone() }
-                            }
-                        } else {
-                            Button(store.microphoneState == "muted" ? store.text("Resume microphone", "恢复麦克风") : store.text("Share this microphone", "共享本机麦克风")) { store.startMicrophone() }
-                                .disabled(!store.microphoneCanStart)
-                        }
-                        Menu {
-                            Button(store.text("Install receiving component…", "安装接收组件…")) { store.openMicrophoneInstaller() }
-                            Button(store.text("Microphone permissions…", "麦克风权限…")) { store.openMicrophonePrivacy() }
-                        } label: { Image(systemName:"ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize()
-                    }.font(.caption)
-                    if !store.microphoneDriverAvailable {
-                        Text(store.text("Receiving component not loaded on this Mac. Install it only if this Mac will receive audio; a restart may be needed.", "本机尚未加载接收组件。接收音频时才需安装，安装后可能需要重启。"))
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                }.padding(.top, 5)
-            } label: {
-                HStack {
-                    Text(store.text("Microphone · Experimental", "麦克风 · 实验功能")).font(.caption)
-                    if store.microphoneActive { Image(systemName:"mic.fill").foregroundStyle(.orange); Text(store.microphoneStatus).font(.caption2).foregroundStyle(.orange).lineLimit(1) }
-                }
-            }
-
             HStack(spacing: 7) {
                 Button(store.text("Stop forwarding", "停止转发")) { store.stopForwarding() }.buttonStyle(.bordered)
                 Button(store.text("Retry", "重试连接")) { store.retry() }.buttonStyle(.borderedProminent)
@@ -110,6 +74,18 @@ struct BridgePopover: View {
                 .toggleStyle(.switch).font(.caption2)
             Text(store.text("Movement, clicks, dragging and two-finger scrolling are available. Experimental gestures forward native events for the destination to interpret; pinch, rotation and three/four-finger gestures still need device testing. Changing this option pauses forwarding.", "支持移动、点击、拖动和双指滚动。实验手势将原生事件交给目标设备解释；捏合、旋转及三／四指操作仍需实机确认。更改此项会暂停转发。"))
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: Binding(get: { store.microphoneEnabled }, set: store.setMicrophoneEnabled)) {
+                HStack(spacing: 5) {
+                    Text(store.text("Share microphone · Experimental", "共享麦克风 · 实验功能"))
+                    if store.microphonePreparing { ProgressView().controlSize(.mini) }
+                }
+            }.toggleStyle(.switch).font(.caption2)
+                .help(store.microphonePreparing ? store.text("Click again to cancel setup.", "再次点击可取消准备。") : store.microphoneStatus)
+            if store.microphonePreparing || !store.microphoneError.isEmpty {
+                Text(store.microphoneError.isEmpty ? store.microphoneSetupMessage : store.microphoneError)
+                    .font(.caption2).foregroundStyle(store.microphoneError.isEmpty ? Color.secondary : Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: 8) {
                 Button { store.grantInput() } label: { Label(store.text("Input", "输入监控"), systemImage: store.inputPermission ? "checkmark.circle.fill" : "circle") }
                     .foregroundStyle(store.inputPermission ? Color.green : Color.secondary)

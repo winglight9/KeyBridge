@@ -34,6 +34,16 @@ final class BridgeStore: ObservableObject {
             if gestureForwardingEnabled != oldValue { stopForwarding() }
         }
     }
+    @Published private(set) var microphoneSetupMessage = ""
+    private var microphoneNeedsConnection = false
+    private var microphonePermissionPending = false
+    private var microphoneRequestID: String?
+    private var stoppedMicrophoneStreams: [String] = []
+    private var receiverStarting = false
+    private var receiverInstallOffered = false
+    private var receiverRestartOffered = false
+    var microphoneEnabled: Bool { microphoneState == "sending" || microphoneState == "receiving" }
+    var microphonePreparing: Bool { microphoneNeedsConnection || microphoneRequestID != nil || microphoneState == "waiting" || microphoneState == "starting" }
     @Published private(set) var microphoneState = "off"
     @Published private(set) var microphoneError = ""
     @Published private(set) var microphoneDriverAvailable = false
@@ -249,7 +259,9 @@ final class BridgeStore: ObservableObject {
     private func establish(_ link: DataLink) {
         guard let vault else { link.close(); return }
         reconnectRequested = false; startupReconnect = false
+        let continueMicrophoneSetup = microphoneNeedsConnection
         stopMicrophone(send: false)
+        if continueMicrophoneSetup { waitForMicrophoneConnection() }
         self.link?.onClosed = nil; self.link?.close("New connection")
         stopLocalInput(); self.link = link; phase = .connecting; error = ""; pairingCode = ""; localPairApproved = false
         connectionBegan = ProcessInfo.processInfo.systemUptime
@@ -371,7 +383,7 @@ final class BridgeStore: ObservableObject {
         capture.renewLease()
         if message.kind.isAudio { receiveMicrophone(message); return }
         switch message.kind {
-        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError: break
+        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError, .audioRequest, .audioPreparing, .audioActive: break
         case .identity:
             guard let identity = message.identity, identity.id == peer?.id else { return }
             peer = identity
@@ -443,7 +455,7 @@ final class BridgeStore: ObservableObject {
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
         if now - lastIdentityRefresh >= 2 { refreshIdentity(); lastIdentityRefresh = now }
-        if microphoneState == "waiting", now - microphoneBegan > 30 {
+        if (microphoneState == "waiting" || microphoneState == "starting" || microphoneRequestID != nil), now - microphoneBegan > 600 {
             microphoneFailed(text("Microphone setup timed out. Try again.", "麦克风准备超时，请重试。"))
         }
         if incomingMicrophone != nil, microphoneState == "receiving", now - lastMicrophoneFrame > 1 {
@@ -480,17 +492,106 @@ final class BridgeStore: ObservableObject {
             microphoneProbePending = true
             DispatchQueue.global(qos:.utility).async { [weak self] in
                 let available = MicrophoneReceiver.available
-                DispatchQueue.main.async { self?.microphoneDriverAvailable = available; self?.microphoneProbePending = false }
+                DispatchQueue.main.async { guard let self else { return }
+                    self.microphoneDriverAvailable = available; self.microphoneProbePending = false
+                    self.advanceMicrophoneSetup() }
             }
         }
         Diagnostics.write(store:self)
+    }
+    func setMicrophoneEnabled(_ enabled: Bool) {
+        if !enabled || microphonePreparing { stopMicrophone(); microphoneError = ""; return }
+        microphoneError = ""
+        guard mode == .wired else {
+            MicrophoneSetupPrompt.show(title:text("Use the wired connection", "麦克风需要有线连接"), message:text("Connect a Thunderbolt cable. Switch to wired mode and continue microphone setup?", "请连接雷雳线。切换到有线模式后继续准备麦克风？"), action:text("Switch to wired", "切换到有线")) { [weak self] accepted in
+                guard let self, accepted else { return }
+                self.confirmMode = .wired; self.switchMode(); self.waitForMicrophoneConnection()
+            }; return
+        }
+        guard ready, phase == .connected else {
+            retry(); waitForMicrophoneConnection(); return
+        }
+        guard peer?.microphoneVersion == AudioPacket.version else {
+            microphoneError = text("Update KeyBridge on both Macs before enabling microphone sharing.", "请先更新两台 Mac 上的键桥，再开启麦克风共享。")
+            MicrophoneSetupPrompt.show(title:text("Update the other Mac", "需要更新另一台 Mac"), message:microphoneError, action:text("OK", "知道了")) { _ in }; return
+        }
+        if sourceID == local.id { startMicrophone() }
+        else {
+            let id = UUID().uuidString; microphoneRequestID = id
+            microphoneBegan = ProcessInfo.processInfo.systemUptime
+            microphoneState = "waiting"; microphoneSetupMessage = text("Preparing microphone on ", "正在准备来源麦克风：") + (peer?.name ?? "")
+            session?.send(Message(.audioRequest, audio:AudioPacket(streamID:id)))
+        }
+    }
+    private func waitForMicrophoneConnection() {
+        microphoneNeedsConnection = true; microphoneState = "waiting"
+        microphoneBegan = ProcessInfo.processInfo.systemUptime
+        microphoneSetupMessage = text("Connect and pair the other Mac; microphone setup will continue automatically.", "请连接并配对另一台 Mac，就绪后会自动继续准备麦克风。")
+    }
+    private func advanceMicrophoneSetup() {
+        if microphoneNeedsConnection, ready, phase == .connected {
+            microphoneNeedsConnection = false; microphoneState = "off"; setMicrophoneEnabled(true); return
+        }
+        if let id = incomingMicrophone, microphoneState == "waiting", !receiverStarting {
+            if microphoneDriverAvailable { prepareMicrophoneReceiver(); return }
+            if !receiverInstallOffered { prepareMicrophoneReceiver() }
+            let installed = FileManager.default.fileExists(atPath:"/Library/Audio/Plug-Ins/HAL/KeyBridgeMicrophone.driver")
+            if installed, receiverInstallOffered, !receiverRestartOffered, ProcessInfo.processInfo.systemUptime - microphoneBegan > 15 {
+                receiverRestartOffered = true
+                let note = text("The microphone component has not loaded. If installation has finished, restart this Mac when convenient, then check Share microphone again.", "麦克风组件尚未加载。若安装已完成，请在方便时重启本机，然后重新勾选“共享麦克风”。")
+                microphoneSetupMessage = note
+                session?.send(Message(.audioPreparing, detail:text("Restart ", "请在安装完成后重启 ") + local.name + text(" after installation, then enable microphone sharing again.", "，再重新勾选共享麦克风。"), audio:AudioPacket(streamID:id)))
+                MicrophoneSetupPrompt.show(title:text("Microphone component not loaded", "麦克风组件尚未加载"), message:note, action:text("OK", "知道了")) { _ in }
+            }
+        }
+        if microphonePermissionPending, let id = outgoingMicrophone, MicrophoneCapture.permissionStatus == "authorized" {
+            microphonePermissionPending = false; beginMicrophoneCapture(streamID:id)
+        }
+    }
+    private func prepareMicrophoneReceiver() {
+        guard let id = incomingMicrophone, !receiverStarting, !microphoneProbePending else { return }
+        if !microphoneDriverAvailable {
+            microphoneSetupMessage = text("Waiting for the microphone component on this Mac…", "等待本机麦克风组件就绪…")
+            session?.send(Message(.audioPreparing, detail:text("Complete microphone setup on ", "请在接收设备完成麦克风安装：") + local.name, audio:AudioPacket(streamID:id)))
+            guard !receiverInstallOffered else { return }
+            receiverInstallOffered = true
+            if FileManager.default.fileExists(atPath:"/Library/Audio/Plug-Ins/HAL/KeyBridgeMicrophone.driver/Contents/MacOS/KeyBridgeMicrophone") {
+                receiverRestartOffered = true
+                let note = text("The component files are present, but macOS has not recognized the microphone. If you just installed it, restart this Mac when convenient, then enable microphone sharing again. If it is still missing after a restart, copy KeyBridge diagnostics for troubleshooting.", "组件文件已经存在，但系统尚未识别麦克风。若刚完成安装，请方便时重启本机，再勾选共享麦克风；若重启后仍未识别，请复制键桥诊断信息排查。")
+                microphoneSetupMessage = note
+                session?.send(Message(.audioPreparing, detail:text("Microphone component not loaded on ", "接收组件尚未加载：") + local.name, audio:AudioPacket(streamID:id)))
+                MicrophoneSetupPrompt.show(title:text("Microphone component not loaded", "麦克风组件尚未加载"), message:note, action:text("OK", "知道了")) { _ in }
+                return
+            }
+            MicrophoneSetupPrompt.show(title:text("Install the microphone component", "需要安装麦克风组件"), message:text("This Mac needs the receiving component. The system installer will ask for administrator approval. If a restart is needed, restart when convenient and enable sharing again.", "本机需要麦克风接收组件。点击安装后，由系统安装器验证管理员身份；若需重启，请方便时重启并重新勾选。"), action:text("Install", "安装")) { [weak self] accepted in
+                guard let self, self.incomingMicrophone == id else { return }
+                if accepted { self.openMicrophoneInstaller() } else { self.stopMicrophone() }
+            }; return
+        }
+        receiverStarting = true
+        microphoneReceiver.start(streamID:id) { [weak self] failure in
+            guard let self, self.incomingMicrophone == id, self.ready else { return }
+            if let failure {
+                self.microphoneFailed(self.text("Microphone component could not start. ", "麦克风组件启动失败。 ") + failure)
+            } else {
+                self.microphoneSetupMessage = self.text("Waiting for microphone access on the source Mac…", "等待来源设备授权并发送麦克风音频…")
+                self.session?.send(Message(.audioReady, audio:AudioPacket(streamID:id)))
+            }
+        }
     }
     private func beginMicrophoneCapture(streamID: String) {
         guard outgoingMicrophone == streamID, ready, mode == .wired else { return }
         MicrophoneCapture.requestPermission { [weak self] granted in
             guard let self, self.outgoingMicrophone == streamID, self.ready, self.mode == .wired else { return }
             guard granted else {
-                self.microphoneFailed(self.text("Allow KeyBridge in Privacy & Security → Microphone, then try again.", "请在“隐私与安全性 → 麦克风”中允许键桥后重试。")); return
+                self.microphonePermissionPending = true
+                self.microphoneSetupMessage = self.text("Waiting for microphone permission on this Mac…", "等待本机麦克风权限…")
+                self.session?.send(Message(.audioPreparing, detail:self.text("Allow microphone access on ", "请在来源设备允许麦克风访问：") + self.local.name, audio:AudioPacket(streamID:streamID)))
+                MicrophoneSetupPrompt.show(title:self.text("Allow microphone access", "需要麦克风权限"), message:self.text("Enable KeyBridge in Privacy & Security → Microphone. Setup will continue automatically when permission is available.", "请在“隐私与安全性 → 麦克风”中允许键桥，权限就绪后会自动继续。"), action:self.text("Open Settings", "打开设置")) { [weak self] accepted in
+                    guard let self, self.outgoingMicrophone == streamID else { return }
+                    if accepted { self.openMicrophonePrivacy() } else { self.stopMicrophone() }
+                }
+                return
             }
             self.microphone.start(streamID:streamID, onFrame: { [weak self] packet in
                 guard let self, self.outgoingMicrophone == streamID, self.ready, self.mode == .wired else { return }
@@ -504,22 +605,29 @@ final class BridgeStore: ObservableObject {
             }, completion: { [weak self] result in
                 guard let self, self.outgoingMicrophone == streamID else { return }
                 switch result {
-                case .success: self.microphoneState = "sending"
+                case .success:
+                    self.microphoneState = "starting"
+                    self.microphoneSetupMessage = self.text("Waiting for the other Mac to receive audio…", "等待另一台 Mac 确认接收到音频…")
                 case .failure(let error): self.microphoneFailed(error.localizedDescription)
                 }
             })
         }
     }
-    func startMicrophone() {
+    func startMicrophone(streamID: String? = nil) {
         guard microphoneCanStart else { return }
         microphoneError = ""; microphoneState = "waiting"
-        let id = UUID().uuidString; outgoingMicrophone = id
+        microphoneSetupMessage = text("Preparing the receiving Mac…", "正在准备接收端…")
+        let id = streamID ?? UUID().uuidString; outgoingMicrophone = id
         microphoneBegan = ProcessInfo.processInfo.systemUptime
         session?.send(Message(.audioStart, audio: AudioPacket(streamID: id)))
     }
     func stopMicrophone(send: Bool = true) {
-        let id = outgoingMicrophone ?? incomingMicrophone
-        outgoingMicrophone = nil; incomingMicrophone = nil
+        let id = outgoingMicrophone ?? incomingMicrophone ?? microphoneRequestID
+        if let id { stoppedMicrophoneStreams.append(id); stoppedMicrophoneStreams = Array(stoppedMicrophoneStreams.suffix(32)) }
+        outgoingMicrophone = nil; incomingMicrophone = nil; microphoneRequestID = nil
+        microphoneNeedsConnection = false; microphonePermissionPending = false
+        receiverStarting = false; receiverInstallOffered = false; receiverRestartOffered = false
+        microphoneSetupMessage = ""
         microphone.stop(); microphoneReceiver.stop(); microphoneState = "off"
         if send, let id { session?.send(Message(.audioStop, audio: AudioPacket(streamID:id))) }
     }
@@ -527,7 +635,10 @@ final class BridgeStore: ObservableObject {
         guard outgoingMicrophone != nil else { return }
         stopMicrophone(); microphoneState = "muted"
     }
-    private func microphoneFailed(_ reason: String) {
+    private func microphoneFailed(_ reason: String, notifyPeer: Bool = true) {
+        if notifyPeer, let id = outgoingMicrophone ?? incomingMicrophone ?? microphoneRequestID {
+            session?.send(Message(.audioError, detail:reason, audio:AudioPacket(streamID:id)))
+        }
         stopMicrophone(); microphoneError = reason; microphoneState = "error"
     }
     func openMicrophoneInstaller() {
@@ -545,23 +656,31 @@ final class BridgeStore: ObservableObject {
         guard mode == .wired, ready, let audio = message.audio else { return }
         switch message.kind {
         case .audioStart:
+            if stoppedMicrophoneStreams.contains(audio.streamID) {
+                session?.send(Message(.audioStop, audio:AudioPacket(streamID:audio.streamID))); return
+            }
             guard !microphoneActive else {
                 if incomingMicrophone == audio.streamID { return }
                 session?.send(Message(.audioError, detail:"Microphone sharing is already active.", audio:AudioPacket(streamID:audio.streamID))); return
             }
+            microphoneRequestID = nil
             incomingMicrophone = audio.streamID; microphoneState = "waiting"; microphoneError = ""
             microphoneBegan = ProcessInfo.processInfo.systemUptime
-            microphoneReceiver.start(streamID:audio.streamID) { [weak self] failure in
-                guard let self, self.incomingMicrophone == audio.streamID, self.ready else { return }
-                if let failure {
-                    self.session?.send(Message(.audioError, detail:failure, audio:AudioPacket(streamID:audio.streamID)))
-                    self.microphoneFailed(self.text("Install the microphone component on this Mac, then try again. ", "请在本机安装麦克风组件后重试。 ") + failure)
-                } else {
-                    self.microphoneDriverAvailable = true
-                    // Allow the source's macOS permission prompt to finish before expecting PCM.
-                    self.session?.send(Message(.audioReady, audio:AudioPacket(streamID:audio.streamID)))
-                }
+            prepareMicrophoneReceiver()
+        case .audioRequest:
+            if stoppedMicrophoneStreams.contains(audio.streamID) {
+                session?.send(Message(.audioStop, audio:AudioPacket(streamID:audio.streamID))); return
             }
+            guard !microphoneActive, sourceID == local.id else {
+                session?.send(Message(.audioError, detail:text("Choose this Mac as the microphone source first.", "请先将来源设备选择为这台 Mac。"), audio:AudioPacket(streamID:audio.streamID))); return
+            }
+            startMicrophone(streamID:audio.streamID)
+        case .audioPreparing:
+            if outgoingMicrophone == audio.streamID || incomingMicrophone == audio.streamID || microphoneRequestID == audio.streamID {
+                microphoneSetupMessage = message.detail ?? text("Preparing the other Mac…", "正在准备另一台 Mac…")
+            }
+        case .audioActive:
+            if outgoingMicrophone == audio.streamID, microphone.isRunning { microphoneState = "sending"; microphoneSetupMessage = "" }
         case .audioReady:
             guard outgoingMicrophone == audio.streamID, microphoneState == "waiting" else { return }
             beginMicrophoneCapture(streamID:audio.streamID)
@@ -569,13 +688,17 @@ final class BridgeStore: ObservableObject {
             guard incomingMicrophone == audio.streamID, let pcm = audio.pcm else { return }
             lastMicrophoneFrame = ProcessInfo.processInfo.systemUptime
             receivedMicrophoneFrames += 1
-            if microphoneState != "receiving" { microphoneState = "receiving" }
-            microphoneReceiver.push(pcm)
+            microphoneReceiver.push(pcm) { [weak self] in
+                guard let self, self.incomingMicrophone == audio.streamID, self.microphoneState != "receiving" else { return }
+                self.microphoneState = "receiving"; self.microphoneSetupMessage = ""
+                self.session?.send(Message(.audioActive, audio:AudioPacket(streamID:audio.streamID)))
+            }
         case .audioStop:
-            if outgoingMicrophone == audio.streamID || incomingMicrophone == audio.streamID { stopMicrophone(send:false) }
+            stoppedMicrophoneStreams.append(audio.streamID); stoppedMicrophoneStreams = Array(stoppedMicrophoneStreams.suffix(32))
+            if outgoingMicrophone == audio.streamID || incomingMicrophone == audio.streamID || microphoneRequestID == audio.streamID { stopMicrophone(send:false) }
         case .audioError:
-            if outgoingMicrophone == audio.streamID || incomingMicrophone == audio.streamID {
-                microphoneFailed(text("Check the microphone component on ", "请检查接收端的麦克风组件：") + (peer?.name ?? "") + ". " + (message.detail ?? ""))
+            if outgoingMicrophone == audio.streamID || incomingMicrophone == audio.streamID || microphoneRequestID == audio.streamID {
+                microphoneFailed(text("Microphone setup failed on ", "对方麦克风准备失败：") + (peer?.name ?? "") + ". " + (message.detail ?? ""), notifyPeer:false)
             }
         default: break
         }

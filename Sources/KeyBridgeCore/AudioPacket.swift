@@ -1,9 +1,9 @@
 import Foundation
 
-/// Experimental microphone v1: 20 ms of mono, signed little-endian Int16 PCM.
+/// Experimental microphone protocol v2: 20 ms of mono, signed little-endian Int16 PCM.
 /// Audio is a separate message payload and never an InputPacket.
 public struct AudioPacket: Codable, Equatable {
-    public static let version = 1
+    public static let version = 2
     public static let sampleRate = 48_000
     public static let channelCount = 1
     public static let samplesPerFrame = 960
@@ -44,7 +44,7 @@ public struct AudioPacket: Codable, Equatable {
 extension Message.Kind {
     public var isAudio: Bool {
         switch self {
-        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError: return true
+        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError, .audioRequest, .audioPreparing, .audioActive: return true
         default: return false
         }
     }

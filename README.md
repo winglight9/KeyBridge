@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v1.2](https://github.com/winglight9/KeyBridge/releases/tag/v1.2) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.3](https://github.com/winglight9/KeyBridge/releases/tag/v1.3) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -56,7 +56,12 @@ KeyBridge reports observed configuration, link and network states. A missing lin
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
-## Experimental wired microphone / 实验性有线麦克风 · 1.2
+## Experimental wired microphone / 实验性有线麦克风 · 1.3
+
+Enable **Share microphone · Experimental** below the native-gestures option on either Mac. Setup guides connection, receiver-component installation and source permission as needed. Both switches stay off until capture starts and the receiver accepts audio; switching off either end stops sharing.
+
+在任一端勾选「原生多指手势」下方的 **「共享麦克风 · 实验功能」**，缺少连接、组件或权限时按提示补齐；采集和接收均就绪才会勾选成功，两端状态同步。任一端取消即停止共享。
+
 
 Share one Mac’s microphone with the paired Mac over the **encrypted wired connection**. Audio uses 48 kHz mono PCM in 20 ms frames; frame duration is not an end-to-end latency promise. **Bluetooth audio is not supported.**
 
@@ -67,12 +72,12 @@ Share one Mac’s microphone with the paired Mac over the **encrypted wired conn
 
 通过**已配对、加密的有线连接**，把一台 Mac 的麦克风提供给另一台。音频为 48 kHz 单声道 PCM、每帧 20 ms；帧长不是端到端延迟承诺。**蓝牙不支持音频。**
 
-- 麦克风**默认关闭**，独立开启／静音；更换键盘控制目标不会自动开启麦克风或改变音频去向。
+- 麦克风**默认关闭**，勾选开启／取消即停止；更换键盘控制目标不会自动开启麦克风或改变音频去向。
 - 来源端需要麦克风权限。接收端需选装**虚拟麦克风组件**，由管理员批准一次安装；系统可能需要你在方便时重启接收端才能载入，不会静默重启音频服务或电脑。
 - 在接收端语音应用中选择 **KeyBridge Microphone**；软件**不会自动修改系统默认麦克风**。
 - 断线立即停止采集，重连后需手动开启。功能**尚未完成双机实机验收**，不承诺所有语音应用或系统版本均兼容。
 
-[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.2 release notes / 1.2 发布说明](docs/release-1.2.md)
+[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.3 release notes / 1.3 发布说明](docs/release-1.3.md)
 
 ## Recovery and privacy / 恢复与隐私
 

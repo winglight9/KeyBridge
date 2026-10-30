@@ -55,7 +55,7 @@ public struct Route: Codable, Equatable {
 }
 
 public struct Message: Codable {
-    public enum Kind: String, Codable { case approved, identity, route, routeReady, routeActive, routeError, input, stop, ping, pong, audioStart, audioFrame, audioStop, audioReady, audioError }
+    public enum Kind: String, Codable { case approved, identity, route, routeReady, routeActive, routeError, input, stop, ping, pong, audioStart, audioFrame, audioStop, audioReady, audioError, audioRequest, audioPreparing, audioActive }
     public var kind: Kind
     public var identity: DeviceIdentity?
     public var route: Route?
