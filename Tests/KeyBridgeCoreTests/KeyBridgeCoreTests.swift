@@ -77,6 +77,55 @@ final class KeyBridgeCoreTests {
         checkEqual(decoded.getIntegerValueField(CGEventField(rawValue:0x6E)!),5)
         checkEqual(decoded.getDoubleValueField(CGEventField(rawValue:0x72)!),-12.5,accuracy:0.00001)
     }
+    func testNativeScrollRetainsDirectionAndPhaseMetadata() {
+        let original = CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:-7,wheel2:3,wheel3:0)!
+        original.setIntegerValueField(.scrollWheelEventIsContinuous,value:1)
+        original.setIntegerValueField(.scrollWheelEventScrollPhase,value:2)
+        original.setIntegerValueField(CGEventField(rawValue:137)!,value:1)
+        let packet = NativeGestureEvent.encode(original)!
+        checkEqual(packet.kind,.gesture)
+        checkEqual(packet.code,Int(NativeGestureEvent.scrollEventType))
+        checkTrue(packet.isValid)
+        let decoded = NativeGestureEvent.decode(packet.nativeEvent!)!
+        checkTrue(NativeGestureEvent.isScroll(decoded))
+        checkEqual(decoded.getDoubleValueField(.scrollWheelEventPointDeltaAxis1),-7,accuracy:0.00001)
+        checkEqual(decoded.getDoubleValueField(.scrollWheelEventPointDeltaAxis2),3,accuracy:0.00001)
+        checkEqual(decoded.getIntegerValueField(.scrollWheelEventScrollPhase),2)
+        checkEqual(decoded.getIntegerValueField(CGEventField(rawValue:137)!),1)
+        checkTrue(NativeGestureEvent.isComplete(decoded))
+        checkTrue(NativeGestureEvent.cancelledCopy(of:decoded) == nil)
+    }
+    func testMicrophonePauseAndResumeUseTheAuthenticatedAudioStream() {
+        let pair = PairHarness(); pair.paired()
+        pair.a.send(Message(.identity, identity:DeviceIdentity(id:"A",name:"A.local",keyboard:true,trackpad:true,canReceive:true)))
+        pair.b.send(Message(.identity, identity:DeviceIdentity(id:"B",name:"B.local",keyboard:true,trackpad:false,canReceive:true)))
+        pair.pump()
+        let stream = UUID().uuidString
+        pair.a.send(Message(.audioStart, audio:AudioPacket(streamID:stream)))
+        pair.a.send(Message(.audioPaused, audio:AudioPacket(streamID:stream)))
+        pair.a.send(Message(.audioResumed, audio:AudioPacket(streamID:stream)))
+        pair.pump()
+        checkEqual(pair.receivedB.suffix(3).map(\.kind),[.audioStart,.audioPaused,.audioResumed])
+        checkTrue(pair.receivedB.suffix(3).allSatisfy { $0.audio?.streamID == stream })
+        checkTrue(pair.failures.isEmpty)
+    }
+    func testEncryptedNativeScrollSurvivesBluetoothFraming() throws {
+        let pair = PairHarness(); pair.paired()
+        let route = Route(source:"A",target:"B")
+        let event = CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:-11,wheel2:2,wheel3:0)!
+        event.setIntegerValueField(.scrollWheelEventScrollPhase,value:2)
+        event.setIntegerValueField(CGEventField(rawValue:137)!,value:1)
+        let packet = NativeGestureEvent.encode(event)!
+        pair.a.send(Message(.input,route:route,input:packet))
+        let wire = pair.queue.removeFirst().1
+        let frame = try FrameDecoder.encode(wire); var decoder = FrameDecoder()
+        for offset in stride(from:0,to:frame.count,by:5) {
+            for received in try decoder.append(Data(frame.dropFirst(offset).prefix(5))) { pair.b.receive(received) }
+        }
+        checkEqual(pair.receivedB.last?.input,packet)
+        checkEqual(pair.receivedB.last?.route?.token,route.token)
+        checkTrue(pair.failures.isEmpty)
+    }
     func testEncryptedNativeGestureSurvivesBluetoothFraming() throws {
         let pair = PairHarness(); pair.paired()
         let route = Route(source:"A",target:"B")
@@ -239,7 +288,10 @@ struct KeyBridgeCheckRunner {
         run("testInvalidInputCannotReachQuartz") { tests.testInvalidInputCannotReachQuartz() }
         run("testNativeGestureRetainsMetadataWithoutActionMapping") { tests.testNativeGestureRetainsMetadataWithoutActionMapping() }
         run("testNativeRotationRetainsItsSubtypeAndValue") { tests.testNativeRotationRetainsItsSubtypeAndValue() }
+        run("testNativeScrollRetainsDirectionAndPhaseMetadata") { tests.testNativeScrollRetainsDirectionAndPhaseMetadata() }
+        run("testMicrophonePauseAndResumeUseTheAuthenticatedAudioStream") { tests.testMicrophonePauseAndResumeUseTheAuthenticatedAudioStream() }
         run("testEncryptedNativeGestureSurvivesBluetoothFraming") { try tests.testEncryptedNativeGestureSurvivesBluetoothFraming() }
+        run("testEncryptedNativeScrollSurvivesBluetoothFraming") { try tests.testEncryptedNativeScrollSurvivesBluetoothFraming() }
         run("testNativeGestureRejectsOtherQuartzEventsAndUnboundedData") { tests.testNativeGestureRejectsOtherQuartzEventsAndUnboundedData() }
         run("testNativeGestureReplayMarkerAndCancellation") { tests.testNativeGestureReplayMarkerAndCancellation() }
         run("testLegacyPeerDoesNotAdvertiseNativeGestureSupport") { try tests.testLegacyPeerDoesNotAdvertiseNativeGestureSupport() }

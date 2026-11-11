@@ -6,7 +6,7 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 
 **macOS 14+ · Apple Silicon beta · English / 简体中文 · MIT**
 
-[Download v1.5](https://github.com/winglight9/KeyBridge/releases/tag/v1.5) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
+[Download v1.6](https://github.com/winglight9/KeyBridge/releases/tag/v1.6) · [Setup / 安装与使用](docs/setup.md) · [Architecture](docs/architecture.md) · [Security](SECURITY.md)
 
 ## What works / 当前状态
 
@@ -27,6 +27,10 @@ A small macOS menu bar app that shares a MacBook’s keyboard and built-in track
 Native gesture forwarding preserves the gesture event for the destination Mac and its apps to interpret. It does **not** replace gestures with preset keyboard shortcuts. Whether a gesture is recognized, and the resulting action, still depend on the destination system, settings and app. The experimental path uses undocumented macOS behavior; it is not a guarantee of complete gesture support.
 
 原生手势转发把事件交给目标 Mac 及应用识别，不把四指上滑等手势写死成快捷键。能否识别以及执行什么操作，取决于目标系统、设置和应用。实验路径依赖未公开的 macOS 行为，不能据此承诺全部手势可用。
+
+**Prevent automatic lock / 防止自动锁屏:** when the optional switch is on, KeyBridge keeps an idle connected Mac from putting its display to sleep and locking before the next input arrives. It uses a process-scoped macOS power assertion and does not rewrite the Mac’s global Lock Screen settings. Turning the switch off or quitting KeyBridge releases it immediately. An explicit lock, closing the lid, low battery or manual sleep still pauses forwarding; KeyBridge does not unlock the Mac or inject fake activity.
+
+**防止自动锁屏：**开启可选开关后，键桥会在连接期间阻止空闲 Mac 自动关闭显示器并锁定。它使用只属于键桥进程的 macOS 电源断言，不修改系统全局锁屏设置；关闭开关或退出键桥会立即释放。手动锁屏、合盖、低电量或主动睡眠仍会暂停转发；键桥不会解锁 Mac，也不会伪造持续输入。
 
 ## Connect in a few clicks / 几步连接
 
@@ -56,7 +60,7 @@ KeyBridge reports observed configuration, link and network states. A missing lin
 
 软件会显示实际读取到的配置、链路与网络状态；只看到“未检测到链路”时，不能直接断言线材不支持。线材及端口依据：[Apple Mac mini (2024) specifications](https://support.apple.com/en-my/121555) · [Apple IP over Thunderbolt guide](https://support.apple.com/en-gb/guide/mac-help/mchld53dd2f5/mac)。
 
-## Experimental wired microphone / 实验性有线麦克风 · 1.5
+## Experimental wired microphone / 实验性有线麦克风 · 1.6
 
 Enable **Share microphone · Experimental** below the native-gestures option on either Mac. Setup guides connection, receiver-component installation and source permission as needed. Both switches stay off until capture starts and the receiver accepts audio; switching off either end stops sharing.
 
@@ -77,7 +81,7 @@ Share one Mac’s microphone with the paired Mac over the **encrypted wired conn
 - 在接收端语音应用中选择 **KeyBridge Microphone**；软件**不会自动修改系统默认麦克风**。
 - 断线立即停止采集，重连后需手动开启。功能**尚未完成双机实机验收**，不承诺所有语音应用或系统版本均兼容。
 
-[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.5 release notes / 1.5 发布说明](docs/release-1.5.md)
+[Microphone setup and limitations / 麦克风安装与限制](docs/microphone.md) · [1.6 release notes / 1.6 发布说明](docs/release-1.6.md)
 
 ## Recovery and privacy / 恢复与隐私
 

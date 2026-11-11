@@ -22,6 +22,8 @@ final class KeyBridgeDelegate: NSObject, NSApplicationDelegate {
     private var item: NSStatusItem!
     private let popover = NSPopover()
     private var observer: AnyCancellable?
+    private var outsideClickMonitor: Any?
+    private var resignObserver: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         store = BridgeStore(initialMode:CommandLine.arguments.contains("--bluetooth") ? .bluetooth : CommandLine.arguments.contains("--wired") ? .wired : nil)
@@ -36,8 +38,9 @@ final class KeyBridgeDelegate: NSObject, NSApplicationDelegate {
             self.popover.contentSize = size
         }
         popover.contentViewController = NSHostingController(rootView:root)
+        installDismissObservers()
         observer = store.$forwarding.combineLatest(store.$microphoneState).receive(on:DispatchQueue.main).sink { [weak self] active, microphone in
-            self?.item?.button?.image = BrandAssets.menuIcon(active:active || microphone == "sending" || microphone == "receiving")
+            self?.item?.button?.image = BrandAssets.menuIcon(active:active || ["sending","receiving","paused"].contains(microphone))
             self?.item?.button?.toolTip = microphone == "sending" ? "KeyBridge · Microphone sharing / 麦克风共享中" : "KeyBridge · 键桥"
         }
         DispatchQueue.main.asyncAfter(deadline:.now()+0.4) { [weak self] in self?.show() }
@@ -48,6 +51,21 @@ final class KeyBridgeDelegate: NSObject, NSApplicationDelegate {
     }
     @objc private func toggle() { if popover.isShown { popover.performClose(nil) } else { show() } }
     @objc private func showRequested(_ notification:Notification) { show() }
+    private func installDismissObservers() {
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching:[.leftMouseDown,.rightMouseDown,.otherMouseDown]
+        ) { [weak self] _ in
+            self?.closePopover()
+        }
+        resignObserver = NotificationCenter.default.addObserver(
+            forName:NSApplication.didResignActiveNotification,object:NSApp,queue:.main
+        ) { [weak self] _ in
+            self?.closePopover()
+        }
+    }
+    private func closePopover() {
+        if popover.isShown { popover.performClose(nil) }
+    }
     private func show() {
         guard let button = item?.button else { return }
         NSApp.activate(ignoringOtherApps:true)
@@ -63,7 +81,11 @@ final class KeyBridgeDelegate: NSObject, NSApplicationDelegate {
         try? png.write(to:Diagnostics.directory.appendingPathComponent("interface.png"),options:.atomic)
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { show(); return true }
-    func applicationWillTerminate(_ notification: Notification) { store?.shutdown() }
+    func applicationWillTerminate(_ notification: Notification) {
+        if let outsideClickMonitor { NSEvent.removeMonitor(outsideClickMonitor) }
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        store?.shutdown()
+    }
 }
 
 @main

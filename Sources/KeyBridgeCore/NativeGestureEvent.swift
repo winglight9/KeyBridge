@@ -1,16 +1,18 @@
 import Foundation
 import CoreGraphics
 
-/// Opaque Quartz gesture transport, not a table mapping finger movements to actions.
+/// Opaque Quartz native-input transport, not a table mapping gestures to actions.
 ///
-/// Preserve the interpreted gesture stream (29) and its Dock companion stream (30).
-/// The destination interprets the opaque payload; no gesture-to-shortcut mapping is used.
-/// Availability and system recognition still require hardware validation.
+/// Preserve interpreted gesture streams (29/30) and the original continuous scroll
+/// event. Reconstructing scroll values loses whether macOS already applied the
+/// source Mac's natural-scroll direction, which can reverse the destination result.
+/// The destination interprets the payload; availability still requires device testing.
 public enum NativeGestureEvent {
-    public static let version = 2
+    public static let version = 3
     public static let eventType: UInt32 = 29
     public static let dockEventType: UInt32 = 30
-    public static let eventTypes: Set<UInt32> = [eventType, dockEventType]
+    public static let scrollEventType = CGEventType.scrollWheel.rawValue
+    public static let eventTypes: Set<UInt32> = [eventType, dockEventType, scrollEventType]
     public static let maximumBytes = 16_384
     /// Tags our own replay, so it can never be captured and bounced back to the peer.
     public static let replayMarker: Int64 = 0x4B425247455354
@@ -19,6 +21,10 @@ public enum NativeGestureEvent {
     private static let phaseField = CGEventField(rawValue: 0x84)!
 
     public static func isGesture(_ event: CGEvent) -> Bool { eventTypes.contains(event.type.rawValue) }
+    public static func isInterpretedGesture(_ event: CGEvent) -> Bool {
+        event.type.rawValue == eventType || event.type.rawValue == dockEventType
+    }
+    public static func isScroll(_ event: CGEvent) -> Bool { event.type == .scrollWheel }
 
     public static func encode(_ event: CGEvent) -> InputPacket? {
         guard isGesture(event), event.getIntegerValueField(.eventSourceUserData) != replayMarker,
@@ -47,13 +53,14 @@ public enum NativeGestureEvent {
     }
 
     public static func isComplete(_ event: CGEvent) -> Bool {
-        event.getIntegerValueField(phaseField) & 0x0C != 0 // ended or cancelled
+        guard isInterpretedGesture(event) else { return true }
+        return event.getIntegerValueField(phaseField) & 0x0C != 0 // ended or cancelled
     }
 
     /// A stopped route must not leave the target in an ongoing native gesture.
     /// This is a cancellation phase of the same gesture, never an application action.
     public static func cancelledCopy(of event: CGEvent) -> CGEvent? {
-        guard isGesture(event), let copy = event.copy() else { return nil }
+        guard isInterpretedGesture(event), let copy = event.copy() else { return nil }
         copy.setIntegerValueField(phaseField,value:8)
         return copy
     }

@@ -70,6 +70,23 @@ struct BridgePopover: View {
             }.font(.caption)
             Divider()
             Label(store.text("The display mouse stays local and can operate this menu.", "显示器鼠标始终本地可用，可操作此菜单。"), systemImage: "computermouse").font(.caption2).foregroundStyle(.secondary)
+            Toggle(isOn: $store.preventAutomaticLock) {
+                HStack(spacing: 5) {
+                    Text(store.text("Prevent automatic lock", "防止自动锁屏"))
+                    if store.automaticLockPreventionActive {
+                        Image(systemName: "lock.open.fill").foregroundStyle(.green)
+                            .accessibilityLabel(store.text("Active", "已生效"))
+                    }
+                }
+            }.toggleStyle(.switch).font(.caption2)
+                .help(store.text(
+                    "Keeps the display awake while connected. Manual lock, closing the lid, or sleep still pauses forwarding.",
+                    "连接期间保持显示器唤醒。手动锁屏、合上屏幕或进入睡眠时仍会暂停转发。"
+                ))
+            if !store.automaticLockPreventionError.isEmpty {
+                Text(store.localizedDetail(store.automaticLockPreventionError))
+                    .font(.caption2).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+            }
             Toggle(store.text("Native multi-finger gestures · Experimental", "原生多指手势 · 实验功能"), isOn: $store.gestureForwardingEnabled)
                 .toggleStyle(.switch).font(.caption2)
             Text(store.text("Movement, clicks, dragging and two-finger scrolling are available. Experimental gestures forward native events for the destination to interpret; pinch, rotation and three/four-finger gestures still need device testing. Changing this option pauses forwarding.", "支持移动、点击、拖动和双指滚动。实验手势将原生事件交给目标设备解释；捏合、旋转及三／四指操作仍需实机确认。更改此项会暂停转发。"))

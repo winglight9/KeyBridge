@@ -9,12 +9,15 @@ enum Diagnostics {
     static var statusFile: URL { directory.appendingPathComponent("status.json") }
     static func write(store: BridgeStore) {
         let dictionary: [String:Any] = [
-            "version":"1.5", "updatedAt":ISO8601DateFormatter().string(from:Date()),
+            "version":"1.6", "updatedAt":ISO8601DateFormatter().string(from:Date()),
             "microphone":store.microphoneDiagnostics,
             "networkName":store.local.name, "mode":store.mode.rawValue,
             "state":String(describing:store.phase), "authenticated":store.ready,
             "forwarding":store.forwarding, "inputMonitoring":store.inputPermission,
             "accessibility":store.receivePermission,
+            "preventAutomaticLock":store.preventAutomaticLock,
+            "automaticLockPreventionActive":store.automaticLockPreventionActive,
+            "automaticLockPreventionError":store.automaticLockPreventionError,
             "nativeGesturesEnabled":store.gestureForwardingEnabled,
             "peerNativeGestureVersion":store.peer?.nativeGestureVersion ?? 0, "peerNativeKeyboardVersion":store.peer?.nativeKeyboardVersion ?? 0,
             "hasKeyboard":store.local.keyboard, "hasSupportedTrackpad":store.local.trackpad,

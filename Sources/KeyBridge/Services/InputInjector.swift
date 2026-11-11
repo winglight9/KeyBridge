@@ -71,6 +71,10 @@ final class InputInjector {
             postNativeKey(event)
         case .gesture:
             guard let bytes = packet.nativeEvent, let event = NativeGestureEvent.decode(bytes) else { return }
+            if NativeGestureEvent.isScroll(event) {
+                postNativeScroll(event)
+                return
+            }
             statistics["gestureAppKitType" + String(NSEvent(cgEvent:event)?.type.rawValue ?? 0), default:0] += 1
             postNativeGesture(event)
             statistics["gestureQuartzType" + String(event.type.rawValue), default:0] += 1
@@ -118,6 +122,15 @@ final class InputInjector {
         // Quartz gesture payloads are already interpreted events; replay at the session layer.
         post(event, at:.cgSessionEventTap)
         statistics["gesturePosted", default:0] += 1
+    }
+    private func postNativeScroll(_ event: CGEvent) {
+        let current = CGEvent(source:nil)
+        NativeGestureEvent.prepareForReplay(event,source:source,at:current?.location ?? .zero,timestamp:current?.timestamp ?? 0)
+        // Preserve the complete continuous-scroll event, including the source Mac's
+        // direction-inverted flag, phases and momentum fields.
+        post(event, at:.cghidEventTap)
+        statistics["nativeScrollPosted", default:0] += 1
+        statistics[event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1) < 0 ? "nativeScrollUp" : "nativeScrollDown", default:0] += 1
     }
     private func currentPointer() -> CGPoint {
         let actual = CGEvent(source:nil)?.location ?? cursor ?? .zero

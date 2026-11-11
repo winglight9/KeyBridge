@@ -113,7 +113,7 @@ final class DeviceEventCapture {
                 }
                 return Unmanaged<DeviceEventCapture>.fromOpaque(context).takeUnretainedValue().handle(type,event:event)
             }
-            var gestureMask = gesturesEnabled ? NativeGestureEvent.eventTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) } : 0
+            var gestureMask = gesturesEnabled ? [NativeGestureEvent.eventType, NativeGestureEvent.dockEventType].reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) } : 0
             if nativeKeyboardEnabled {
                 for keyType in [CGEventType.keyDown, .keyUp, .flagsChanged, CGEventType(rawValue:NativeKeyboardEvent.systemType)!] {
                     gestureMask |= CGEventMask(1) << keyType.rawValue
@@ -188,8 +188,9 @@ final class DeviceEventCapture {
             count("systemKeySeen")
             if let ns = NSEvent(cgEvent:event) { count("systemKeySubtype" + String(ns.subtype.rawValue)); count("systemKeyCode" + String((ns.data1 >> 16) & 0xffff)) }
         }
-        let gesture = NativeGestureEvent.isGesture(event)
-        if gesture { count("gestureSeen") }
+        let nativeGestureEvent = NativeGestureEvent.isInterpretedGesture(event) ||
+            (gesturesEnabled && NativeGestureEvent.isScroll(event))
+        if nativeGestureEvent { count("gestureSeen") }
         if type == .scrollWheel { count("scrollSeen") }
         let senders = resolver?.identifiers(event) ?? []
         // Quartz exposes the originating process, but does not promise that every
@@ -215,33 +216,37 @@ final class DeviceEventCapture {
             }
         }
         let now = ProcessInfo.processInfo.systemUptime
-        let physicalGesture = gesture && !gestureAllowed.isDisjoint(with:senders)
+        let physicalGesture = nativeGestureEvent && !gestureAllowed.isDisjoint(with:senders)
         if physicalGesture { lastPhysicalGestureAt = now }
         // Dock's companion event may omit the HID sender. Accept it only next to an
         // identified internal-trackpad event, never arbitrary synthetic mouse input.
-        let companion = gesture && event.type.rawValue == NativeGestureEvent.dockEventType && senders.isEmpty &&
+        let companion = nativeGestureEvent && event.type.rawValue == NativeGestureEvent.dockEventType && senders.isEmpty &&
             now-lastPhysicalGestureAt < 0.1 && event.getIntegerValueField(.eventSourceUnixProcessID) == 0
         guard !senders.isEmpty || companion else {
             count("unidentified"); count("unidentifiedType" + String(type.rawValue)); if type == .scrollWheel { count("scrollUnidentified") }
-            if gesture { count("gestureUnidentified") }
+            if nativeGestureEvent { count("gestureUnidentified") }
             rememberLocalPointer(type,event:event)
             return Unmanaged.passUnretained(event)
         }
-        let eligible = gesture ? gestureAllowed : allowed
+        let eligible = nativeGestureEvent ? gestureAllowed : allowed
         guard companion || !eligible.isDisjoint(with:senders) else {
             count("excluded"); count("excludedType" + String(type.rawValue));
             for sender in senders.prefix(4) { count("excludedSender" + String(sender)) }
             if type == .scrollWheel { count("scrollExcluded") }
-            if gesture { count("gestureExcluded") }
+            if nativeGestureEvent { count("gestureExcluded") }
             rememberLocalPointer(type,event:event)
             return Unmanaged.passUnretained(event)
         }
         if companion { count("gestureCompanionMatched") }
-        if gesture {
+        if nativeGestureEvent {
             count("gestureQuartzType" + String(event.type.rawValue))
             count("gestureAppKitType" + String(NSEvent(cgEvent:event)?.type.rawValue ?? 0))
             guard gesturesEnabled, let packet = NativeGestureEvent.encode(event), packet.isValid else {
                 count("gestureInvalid"); return Unmanaged.passUnretained(event)
+            }
+            if NativeGestureEvent.isScroll(event) {
+                count("nativeScrollForwarded")
+                count(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1) < 0 ? "nativeScrollUp" : "nativeScrollDown")
             }
             count("gestureForwarded"); onInput?(packet); return nil
         }

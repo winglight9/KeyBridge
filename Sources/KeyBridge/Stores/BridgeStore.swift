@@ -34,6 +34,14 @@ final class BridgeStore: ObservableObject {
             if gestureForwardingEnabled != oldValue { stopForwarding() }
         }
     }
+    @Published var preventAutomaticLock = UserDefaults.standard.bool(forKey:"prevent-automatic-lock") {
+        didSet {
+            UserDefaults.standard.set(preventAutomaticLock, forKey:"prevent-automatic-lock")
+            refreshAutomaticLockPrevention()
+        }
+    }
+    @Published private(set) var automaticLockPreventionActive = false
+    @Published private(set) var automaticLockPreventionError = ""
     @Published private(set) var microphoneSetupMessage = ""
     private var microphoneNeedsConnection = false
     private var microphonePermissionPending = false
@@ -42,7 +50,7 @@ final class BridgeStore: ObservableObject {
     private var receiverStarting = false
     private var receiverInstallOffered = false
     private var receiverReloadOffered = false
-    var microphoneEnabled: Bool { microphoneState == "sending" || microphoneState == "receiving" }
+    var microphoneEnabled: Bool { ["sending","receiving","paused"].contains(microphoneState) }
     var microphonePreparing: Bool { microphoneNeedsConnection || microphoneRequestID != nil || microphoneState == "waiting" || microphoneState == "starting" }
     @Published private(set) var microphoneState = "off"
     @Published private(set) var microphoneError = ""
@@ -57,6 +65,12 @@ final class BridgeStore: ObservableObject {
     private var receivedMicrophoneFrames = 0
     private var sentMicrophoneFrames = 0
     private var microphoneProbePending = false
+    private var microphonePaused = false
+    private var screenAsleep = false
+    private var sessionInactive = false
+    private var forwardingSuspendedForSession = false
+    private var forwardingSuspendedForLink = false
+    private var forwardingSuspendedRoute: Route?
     var microphoneActive: Bool { outgoingMicrophone != nil || incomingMicrophone != nil }
     var microphoneCanStart: Bool { ready && phase == .connected && mode == .wired && peer?.microphoneVersion == AudioPacket.version && !microphoneActive }
     var microphoneStatus: String {
@@ -64,6 +78,7 @@ final class BridgeStore: ObservableObject {
         case "waiting": return text("Preparing microphone…", "正在准备麦克风…")
         case "sending": return text("Microphone → ", "麦克风 → ") + (peer?.name ?? "")
         case "receiving": return text("Receiving microphone from ", "正在接收麦克风：") + (peer?.name ?? "")
+        case "paused": return text("Microphone paused while the source Mac is idle", "来源 Mac 空闲期间，麦克风已暂停")
         case "muted": return text("Microphone muted", "麦克风已静音")
         case "error": return text("Microphone unavailable", "麦克风暂不可用")
         default: return text("Microphone off", "麦克风已关闭")
@@ -78,6 +93,8 @@ final class BridgeStore: ObservableObject {
     private let log = Logger(subsystem: "org.keybridge.app", category: "Connection")
     private let capture = DeviceEventCapture()
     private let injector = InputInjector()
+    private let automaticLockPrevention = AutomaticLockPrevention()
+    private var automaticLockPreventionRequest: Bool?
     private var vault: IdentityVault?
     private var transport: BridgeTransport?
     private var link: DataLink?
@@ -96,9 +113,14 @@ final class BridgeStore: ObservableObject {
     }
     private var heartbeat: Timer?
     private var lastReceived = ProcessInfo.processInfo.systemUptime
+    private var lastHeartbeatTick = ProcessInfo.processInfo.systemUptime
+    private var heartbeatUnansweredSince: Double?
+    private var connectionActivity: NSObjectProtocol?
+    private var reconnectAfterWake = false
     private var connectionBegan = 0.0
     private var lastHardwareRefresh = 0.0
     private var lastIdentityRefresh = 0.0
+    private var lastSessionStateRefresh = 0.0
     private var pendingIntent: String?
     private var requestedDiscovery: String?
     private var generation = UUID()
@@ -109,6 +131,7 @@ final class BridgeStore: ObservableObject {
     private var startupReconnectScheduled = false
 
     init(initialMode: LinkMode? = nil) {
+        sessionInactive = Self.sessionIsLocked
         language = UserDefaults.standard.string(forKey: "language") ?? (Locale.preferredLanguages.first?.hasPrefix("zh") == true ? "zh" : "en")
         let endpoints = HIDCatalog.scan()
         let identity = DeviceIdentity(id: "unavailable", name: IdentityVault.networkName,
@@ -120,17 +143,48 @@ final class BridgeStore: ObservableObject {
         reconnectRequested = requestedDiscovery != nil; startupReconnect = reconnectRequested
         pendingIntent = reconnectRequested ? "connect" : nil
         capture.onFailure = { [weak self] text in
-            guard let self else { return }; self.stopForwarding(); self.error = text
+            guard let self else { return }
+            self.suspendForwardingForLink()
+            self.phase = .unstable
+            self.error = text
         }
         microphoneReceiver.onFailure = { [weak self] stream, reason in
             guard let self, self.incomingMicrophone == stream else { return }
             self.microphoneFailed(reason)
         }
         heartbeat = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.tick() }
+        heartbeat?.tolerance = 0
         if let heartbeat { RunLoop.main.add(heartbeat, forMode: .common) }
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in self?.disconnect("Mac is sleeping") })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.reconnectAfterWake = self.requestedDiscovery != nil
+            self.disconnect("Mac is sleeping")
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.reconnectAfterWake, self.requestedDiscovery != nil else { return }
+            self.reconnectAfterWake = false
+            self.reconnectRequested = true
+            self.startupReconnect = true
+            self.pendingIntent = "connect"
+            self.startTransport()
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.screenAsleep = true; self.refreshSessionSuspension()
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.screenAsleep = false; self.refreshSessionSuspension()
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.sessionInactive = true; self.refreshSessionSuspension()
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.sessionInactive = false; self.refreshSessionSuspension()
+        })
         observers.append(NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in self?.shutdown() })
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.sessionDidResignActiveNotification, object: nil, queue: .main) { [weak self] _ in self?.stopMicrophone() })
         prepareIdentity()
     }
     private func prepareIdentity() {
@@ -298,6 +352,8 @@ final class BridgeStore: ObservableObject {
             if let saved = self.savedSelection, self.validSelection(saved.route) {
                 self.route = saved.route; self.sourceID = saved.route.source; self.targetID = saved.route.target
             } else { self.savedSelection = nil; self.route = nil }
+            self.detail = ""
+            self.beginConnectionActivity()
             self.log.info("Authenticated direct connection established")
             let intent = self.pendingIntent; self.pendingIntent = nil
             if intent == "target" { self.sourceID = self.local.id; self.targetID = identity.id }
@@ -347,7 +403,14 @@ final class BridgeStore: ObservableObject {
         // an active or starting source capture merely because its token is echoed.
         if incoming == route {
             if let revision { rememberSelection(incoming, modifiedAt: revision) }
-            if incoming.source != incoming.target, incoming.target == local.id {
+            guard incoming.source != incoming.target else { return }
+            guard !sessionInactive, !screenAsleep else {
+                forwardingSuspendedForSession = true
+                forwardingSuspendedRoute = incoming
+                return
+            }
+            guard !forwardingSuspendedForLink, phase != .unstable else { return }
+            if incoming.target == local.id {
                 guard InputInjector.allowed else { routeFailed("Accessibility permission required", route: incoming); return }
                 session?.send(Message(.routeReady, route: incoming))
             }
@@ -356,6 +419,9 @@ final class BridgeStore: ObservableObject {
         rememberSelection(incoming, modifiedAt: revision); acceptRoute(incoming)
     }
     private func applySelection() {
+        forwardingSuspendedForSession = false
+        forwardingSuspendedForLink = false
+        forwardingSuspendedRoute = nil
         error = ""
         if sourceID == targetID {
             stopLocalInput(); let route = Route(source: sourceID, target: targetID)
@@ -374,6 +440,16 @@ final class BridgeStore: ObservableObject {
         guard let peer, [local.id, peer.id].contains(route.source), [local.id, peer.id].contains(route.target) else { return }
         self.route = route; sourceID = route.source; targetID = route.target; error = ""
         guard route.source != route.target else { return }
+        guard !sessionInactive, !screenAsleep else {
+            forwardingSuspendedForSession = true
+            forwardingSuspendedRoute = route
+            return
+        }
+        guard !forwardingSuspendedForLink, phase != .unstable else {
+            forwardingSuspendedForLink = true
+            forwardingSuspendedRoute = route
+            return
+        }
         if route.target == local.id {
             guard InputInjector.allowed else { routeFailed("Accessibility permission required", route: route); return }
             session?.send(Message(.routeReady, route: route))
@@ -381,10 +457,12 @@ final class BridgeStore: ObservableObject {
     }
     private func receive(_ message: Message) {
         lastReceived = ProcessInfo.processInfo.systemUptime
+        heartbeatUnansweredSince = nil
         capture.renewLease()
         if message.kind.isAudio { receiveMicrophone(message); return }
         switch message.kind {
-        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError, .audioRequest, .audioPreparing, .audioActive: break
+        case .audioStart, .audioFrame, .audioStop, .audioReady, .audioError, .audioRequest,
+             .audioPreparing, .audioActive, .audioPaused, .audioResumed: break
         case .identity:
             guard let identity = message.identity, identity.id == peer?.id else { return }
             peer = identity
@@ -394,11 +472,26 @@ final class BridgeStore: ObservableObject {
         case .ping: session?.send(Message(.pong, stamp: message.stamp))
         case .pong:
             if let stamp = message.stamp { latency = max(0, (ProcessInfo.processInfo.systemUptime - stamp) * 1000) }
-            if phase == .unstable { phase = .connected }
+            if phase == .unstable {
+                phase = .connected
+                error = ""
+                forwardingSuspendedForLink = false
+                restoreSuspendedForwardingIfPossible()
+            }
         case .route:
             if let route = message.route { receiveSelection(route, revision: message.stamp) }
         case .routeReady:
             guard let incoming = message.route, incoming == route, incoming.source == local.id, ready else { return }
+            guard !sessionInactive, !screenAsleep else {
+                forwardingSuspendedForSession = true
+                forwardingSuspendedRoute = incoming
+                return
+            }
+            guard !forwardingSuspendedForLink, phase != .unstable else {
+                forwardingSuspendedForLink = true
+                forwardingSuspendedRoute = incoming
+                return
+            }
             let token = incoming.token
             if forwarding {
                 session?.send(Message(.routeActive, route: incoming)); return
@@ -422,31 +515,63 @@ final class BridgeStore: ObservableObject {
                 case .failure(let error): self.routeFailed(error.localizedDescription, route: incoming)
                 }
             }
-        case .routeActive: if message.route == route, route?.target == local.id { error = ""; forwarding = true }
+        case .routeActive:
+            if message.route == route, route?.target == local.id {
+                error = ""
+                if sessionInactive || screenAsleep {
+                    forwardingSuspendedForSession = true
+                    forwardingSuspendedRoute = message.route
+                    forwarding = false
+                } else if forwardingSuspendedForLink || phase == .unstable {
+                    forwardingSuspendedForLink = true
+                    forwardingSuspendedRoute = message.route
+                    forwarding = false
+                } else {
+                    forwarding = true
+                }
+            }
         case .routeError:
-            if message.route?.token == route?.token { stopLocalInput(); error = message.detail ?? "Input unavailable"; targetID = sourceID; route = nil }
+            if message.route?.token == route?.token {
+                forwardingSuspendedForSession = false
+                forwardingSuspendedForLink = false
+                forwardingSuspendedRoute = nil
+                stopLocalInput(); error = message.detail ?? "Input unavailable"; targetID = sourceID; route = nil
+            }
         case .input:
             guard forwarding, let incoming = message.route, incoming.token == route?.token,
                   route?.target == local.id, route?.source == peer?.id, let packet = message.input else { return }
             guard InputInjector.allowed else { if let route { routeFailed("Accessibility permission was revoked", route: route) }; return }
             injector.apply(packet)
         case .stop:
+            forwardingSuspendedForSession = false
+            forwardingSuspendedForLink = false
+            forwardingSuspendedRoute = nil
             stopLocalInput(); route = nil; targetID = sourceID
             rememberSelection(Route(source: sourceID, target: sourceID))
         case .approved: break
         }
     }
     private func routeFailed(_ reason: String, route: Route) {
+        forwardingSuspendedForSession = false
+        forwardingSuspendedForLink = false
+        forwardingSuspendedRoute = nil
         stopLocalInput(); error = reason; self.route = nil; targetID = sourceID
         session?.send(Message(.routeError, route: route, detail: reason))
     }
     func stopForwarding() {
+        forwardingSuspendedForSession = false
+        forwardingSuspendedForLink = false
+        forwardingSuspendedRoute = nil
         stopLocalInput(); route = nil; targetID = sourceID
         rememberSelection(Route(source: sourceID, target: sourceID))
         session?.send(Message(.stop))
     }
     private func stopLocalInput() { captureStartingToken = nil; capture.stop(); injector.releaseAll(); forwarding = false }
     func disconnect(_ reason: String = "Disconnected") {
+        forwardingSuspendedForSession = false
+        forwardingSuspendedForLink = false
+        forwardingSuspendedRoute = nil
+        endConnectionActivity()
         stopMicrophone(send: false); stopLocalInput(); route = nil; targetID = sourceID; phase = .disconnected
         reconnectRequested = false; startupReconnect = false
         session = nil; pairingCode = ""; latency = nil; detail = reason
@@ -456,19 +581,45 @@ final class BridgeStore: ObservableObject {
     }
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
+        refreshAutomaticLockPrevention()
+        if now - lastSessionStateRefresh >= 1 {
+            lastSessionStateRefresh = now
+            let locked = Self.sessionIsLocked
+            if locked != sessionInactive {
+                sessionInactive = locked
+                refreshSessionSuspension()
+            }
+        }
+        let schedulingGap = now - lastHeartbeatTick
+        lastHeartbeatTick = now
+        if schedulingGap > 0.6 {
+            // A display sleep or App Nap wake can delay the main queue. That delay
+            // says nothing about the peer, so give the next heartbeat its own grace.
+            lastReceived = now
+            heartbeatUnansweredSince = nil
+            if incomingMicrophone != nil, microphoneState == "receiving" {
+                lastMicrophoneFrame = now
+            }
+        }
         if now - lastIdentityRefresh >= 2 { refreshIdentity(); lastIdentityRefresh = now }
         if (microphoneState == "waiting" || microphoneState == "starting" || microphoneRequestID != nil), now - microphoneBegan > 600 {
             microphoneFailed(text("Microphone setup timed out. Try again.", "麦克风准备超时，请重试。"))
         }
-        if incomingMicrophone != nil, microphoneState == "receiving", now - lastMicrophoneFrame > 1 {
+        if incomingMicrophone != nil, microphoneState == "receiving", !microphonePaused, now - lastMicrophoneFrame > 3 {
             microphoneFailed(text("Microphone audio stopped arriving.", "麦克风音频已中断。"))
         }
         if ready {
             let stale = now - lastReceived
-            if stale > 1.2 { disconnect("Direct link timed out; input restored locally"); return }
-            if stale > 0.65, phase != .unstable {
-                stopMicrophone(); stopForwarding(); phase = .unstable
-                error = text("Link unstable. Input returned to its source. Retry or choose Bluetooth.", "连接不稳定，输入已返回来源设备。可用鼠标重试或选择蓝牙。")
+            if let unanswered = heartbeatUnansweredSince, now - unanswered > 8 {
+                disconnect("Direct link timed out; input restored locally"); return
+            }
+            if stale > 0.65 {
+                if heartbeatUnansweredSince == nil { heartbeatUnansweredSince = now }
+                if phase != .unstable {
+                    suspendForwardingForLink()
+                    phase = .unstable
+                    error = text("Link interrupted. Input returned locally; reconnecting automatically.", "连接暂时中断，输入已返回本机，正在自动恢复。")
+                }
             }
             session?.send(Message(.ping, stamp: now))
         } else if phase == .connecting, now - connectionBegan > 20 {
@@ -476,6 +627,36 @@ final class BridgeStore: ObservableObject {
         } else if phase == .pairing, now - connectionBegan > 180 {
             disconnect("Pairing confirmation timed out")
         }
+    }
+    private func beginConnectionActivity() {
+        guard connectionActivity == nil else { return }
+        connectionActivity = ProcessInfo.processInfo.beginActivity(
+            options:.userInitiatedAllowingIdleSystemSleep,
+            reason:"Keep the KeyBridge link responsive while its Mac is idle"
+        )
+    }
+    private func endConnectionActivity() {
+        if let connectionActivity {
+            ProcessInfo.processInfo.endActivity(connectionActivity)
+            self.connectionActivity = nil
+        }
+    }
+    private func refreshAutomaticLockPrevention() {
+        let shouldBeActive = preventAutomaticLock && ready && (phase == .connected || phase == .unstable)
+        if shouldBeActive != automaticLockPreventionRequest {
+            automaticLockPreventionRequest = shouldBeActive
+            automaticLockPrevention.setActive(shouldBeActive)
+        }
+        if automaticLockPreventionActive != automaticLockPrevention.isActive {
+            automaticLockPreventionActive = automaticLockPrevention.isActive
+        }
+        if automaticLockPreventionError != automaticLockPrevention.lastError {
+            automaticLockPreventionError = automaticLockPrevention.lastError
+        }
+    }
+    private static var sessionIsLocked: Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String:Any] else { return false }
+        return (session["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue ?? false
     }
     private func refreshIdentity() {
         inputPermission = HIDCatalog.allowed; receivePermission = InputInjector.allowed
@@ -620,12 +801,14 @@ final class BridgeStore: ObservableObject {
         let id = streamID ?? UUID().uuidString; outgoingMicrophone = id
         microphoneBegan = ProcessInfo.processInfo.systemUptime
         session?.send(Message(.audioStart, audio: AudioPacket(streamID: id)))
+        refreshSourceMicrophoneSuspension()
     }
     func stopMicrophone(send: Bool = true) {
         let id = outgoingMicrophone ?? incomingMicrophone ?? microphoneRequestID
         if let id { stoppedMicrophoneStreams.append(id); stoppedMicrophoneStreams = Array(stoppedMicrophoneStreams.suffix(32)) }
         outgoingMicrophone = nil; incomingMicrophone = nil; microphoneRequestID = nil
         microphoneNeedsConnection = false; microphonePermissionPending = false
+        microphonePaused = false
         receiverStarting = false; receiverInstallOffered = false; receiverReloadOffered = false
         microphoneSetupMessage = ""
         microphone.stop(); microphoneReceiver.stop(); microphoneState = "off"
@@ -684,12 +867,22 @@ final class BridgeStore: ObservableObject {
         case .audioReady:
             guard outgoingMicrophone == audio.streamID, microphoneState == "waiting" else { return }
             beginMicrophoneCapture(streamID:audio.streamID)
+        case .audioPaused:
+            guard incomingMicrophone == audio.streamID else { return }
+            microphonePaused = true; lastMicrophoneFrame = ProcessInfo.processInfo.systemUptime
+            if microphoneState == "receiving" { microphoneState = "paused" }
+        case .audioResumed:
+            guard incomingMicrophone == audio.streamID else { return }
+            microphonePaused = false; lastMicrophoneFrame = ProcessInfo.processInfo.systemUptime
+            // Keep the visible state paused until audio actually starts again.
         case .audioFrame:
             guard incomingMicrophone == audio.streamID, let pcm = audio.pcm else { return }
             lastMicrophoneFrame = ProcessInfo.processInfo.systemUptime
             receivedMicrophoneFrames += 1
             microphoneReceiver.push(pcm) { [weak self] in
-                guard let self, self.incomingMicrophone == audio.streamID, self.microphoneState != "receiving" else { return }
+                guard let self, self.incomingMicrophone == audio.streamID else { return }
+                self.microphonePaused = false
+                guard self.microphoneState != "receiving" else { return }
                 self.microphoneState = "receiving"; self.microphoneSetupMessage = ""
                 self.session?.send(Message(.audioActive, audio:AudioPacket(streamID:audio.streamID)))
             }
@@ -702,6 +895,60 @@ final class BridgeStore: ObservableObject {
             }
         default: break
         }
+    }
+    private func refreshSourceMicrophoneSuspension() {
+        guard let id = outgoingMicrophone else { return }
+        let suspended = screenAsleep || sessionInactive
+        guard suspended != microphonePaused else { return }
+        let wasSuspended = microphonePaused
+        microphonePaused = suspended
+        session?.send(Message(suspended ? .audioPaused : .audioResumed, audio:AudioPacket(streamID:id)))
+        if wasSuspended, !suspended {
+            // AVAudioEngine can stop producing callbacks while the source display is
+            // asleep. Reopen the same stream locally on resume; the session and driver
+            // remain active, so no restart of a Mac or audio service is involved.
+            microphone.stop()
+            microphoneState = "waiting"
+            beginMicrophoneCapture(streamID:id)
+        }
+    }
+    private func refreshSessionSuspension() {
+        let suspended = screenAsleep || sessionInactive
+        refreshSourceMicrophoneSuspension()
+        if suspended {
+            suspendForwardingForSession()
+            return
+        }
+
+        forwardingSuspendedForSession = false
+        restoreSuspendedForwardingIfPossible()
+    }
+    private func suspendForwardingForSession() {
+        if let activeRoute = route, activeRoute.source != activeRoute.target {
+            forwardingSuspendedRoute = activeRoute
+            forwardingSuspendedForSession = true
+            stopLocalInput()
+        }
+    }
+    private func suspendForwardingForLink() {
+        if let activeRoute = route, activeRoute.source != activeRoute.target {
+            forwardingSuspendedRoute = activeRoute
+            forwardingSuspendedForLink = true
+            stopLocalInput()
+        }
+        if heartbeatUnansweredSince == nil {
+            heartbeatUnansweredSince = ProcessInfo.processInfo.systemUptime
+        }
+    }
+    private func restoreSuspendedForwardingIfPossible() {
+        guard ready, phase == .connected, !sessionInactive, !screenAsleep,
+              !forwardingSuspendedForSession, !forwardingSuspendedForLink,
+              let suspendedRoute = forwardingSuspendedRoute,
+              validSelection(suspendedRoute) else { return }
+        forwardingSuspendedRoute = nil
+        session?.send(Message(.route, route: suspendedRoute,
+            stamp: savedSelection?.modifiedAt))
+        acceptRoute(suspendedRoute)
     }
     func grantInput() {
         HIDCatalog.requestPermission()
@@ -718,7 +965,16 @@ final class BridgeStore: ObservableObject {
             NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text,forType:.string)
         }
     }
-    func shutdown() { stopped = true; heartbeat?.invalidate(); heartbeat = nil; disconnect("App stopped"); transport?.stop() }
+    func shutdown() {
+        stopped = true
+        heartbeat?.invalidate()
+        heartbeat = nil
+        automaticLockPrevention.setActive(false)
+        automaticLockPreventionRequest = false
+        automaticLockPreventionActive = false
+        disconnect("App stopped")
+        transport?.stop()
+    }
     func quit() { shutdown(); NSApp.terminate(nil) }
     deinit { heartbeat?.invalidate(); capture.stop() }
 }
