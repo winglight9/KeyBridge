@@ -155,37 +155,12 @@ const demoHint = document.getElementById('demo-hint');
 const macbookBadge = document.getElementById('macbook-badge');
 const miniBadge = document.getElementById('mini-badge');
 const sendPulseBtn = document.getElementById('send-pulse');
-const themeToggleBtn = document.getElementById('theme-toggle');
-const themeColorMeta = document.getElementById('theme-color-meta');
 const metaDescription = document.getElementById('meta-description');
 
 const metaDescByLang = {
   en: 'KeyBridge (键桥) is a free, open-source macOS menu bar app that shares your MacBook keyboard, trackpad, and experimental wired microphone with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.',
   zh: '键桥（KeyBridge）是一款免费开源的 macOS 菜单栏工具，可通过雷雳有线直连或蓝牙把 MacBook 的键盘、内置触摸板及实验性有线麦克风共享给另一台 Mac，同时保持外接鼠标本机独立可用。'
 };
-
-function applyTheme(theme, persist) {
-  document.documentElement.dataset.theme = theme;
-  if (themeColorMeta) {
-    themeColorMeta.setAttribute('content', theme === 'light' ? '#f5f5f7' : '#0a0a0b');
-  }
-  updateThemeLabel();
-  if (persist) {
-    try {
-      localStorage.setItem('keybridge-theme', theme);
-    } catch (e) {}
-  }
-}
-
-function updateThemeLabel() {
-  if (!themeToggleBtn) return;
-  const isLight = document.documentElement.dataset.theme === 'light';
-  const label = language === 'zh'
-    ? (isLight ? '切换到深色模式' : '切换到浅色模式')
-    : (isLight ? 'Switch to dark mode' : 'Switch to light mode');
-  themeToggleBtn.setAttribute('aria-label', label);
-  themeToggleBtn.setAttribute('title', label);
-}
 
 function setLanguage(value) {
   language = value;
@@ -202,7 +177,6 @@ function setLanguage(value) {
   if (metaDescription) {
     metaDescription.setAttribute('content', metaDescByLang[value]);
   }
-  updateThemeLabel();
 
   try {
     localStorage.setItem('keybridge-language', value);
@@ -290,23 +264,6 @@ function triggerPulse() {
 document.getElementById('language').addEventListener('click', () => {
   setLanguage(language === 'en' ? 'zh' : 'en');
 });
-
-if (themeToggleBtn) {
-  themeToggleBtn.addEventListener('click', () => {
-    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-    applyTheme(next, true);
-  });
-}
-
-if (window.matchMedia) {
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (event) => {
-    try {
-      if (!localStorage.getItem('keybridge-theme')) {
-        applyTheme(event.matches ? 'light' : 'dark', false);
-      }
-    } catch (e) {}
-  });
-}
 
 sourceSelect.addEventListener('change', updatePreview);
 destSelect.addEventListener('change', updatePreview);
