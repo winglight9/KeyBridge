@@ -6,12 +6,12 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
   <meta name="robots" content="index, follow">
-  <meta name="description" id="meta-description" content="KeyBridge (键桥) is a free, open-source macOS menu bar app that shares your MacBook keyboard, trackpad, and experimental wired microphone with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.">
-  <meta name="keywords" content="KeyBridge, 键桥, macOS, share keyboard between Macs, share trackpad, Thunderbolt Bridge, MacBook, Mac mini, software KVM, open source, 共享键盘, 共享触摸板, 雷雳网桥">
+  <meta name="description" id="meta-description" content="KeyBridge (键桥) is a free, open-source macOS menu bar app. Use your MacBook’s keyboard and trackpad to control another Mac over a Thunderbolt cable or Bluetooth, while your external mouse stays on its own Mac.">
+  <meta name="keywords" content="KeyBridge, 键桥, macOS, share keyboard between Macs, share trackpad, Thunderbolt Bridge, MacBook, Mac mini, software KVM, open source, 共享键盘, 共享触摸板, 雷雳直连">
   <link rel="canonical" href="https://keybridge.886366.xyz/">
   <meta property="og:site_name" content="KeyBridge / 键桥">
   <meta property="og:title" content="KeyBridge (键桥) — One keyboard. Two Macs.">
-  <meta property="og:description" content="Share your MacBook keyboard and built-in trackpad with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.">
+  <meta property="og:description" content="Use your MacBook’s keyboard and trackpad on another Mac over a Thunderbolt cable or Bluetooth. Your external mouse stays right where it is.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://keybridge.886366.xyz/">
   <meta property="og:image" content="https://keybridge.886366.xyz/assets/og-card.png">
@@ -22,7 +22,7 @@
   <meta property="og:locale:alternate" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="KeyBridge (键桥) — One keyboard. Two Macs.">
-  <meta name="twitter:description" content="A lightweight open-source macOS menu bar app for sharing your MacBook keyboard and trackpad with another Mac over Thunderbolt or Bluetooth.">
+  <meta name="twitter:description" content="Use your MacBook’s keyboard and trackpad on another Mac over Thunderbolt or Bluetooth. Free, open source, and lives quietly in your menu bar.">
   <meta name="twitter:image" content="https://keybridge.886366.xyz/assets/og-card.png">
   <title>KeyBridge — One keyboard. Two Macs.</title>
   <link rel="icon" href="assets/keybridge-icon.png">
@@ -36,7 +36,7 @@
           "@type": "SoftwareApplication",
           "name": "KeyBridge / 键桥",
           "alternateName": ["KeyBridge", "键桥"],
-          "description": "A lightweight macOS menu bar app that shares a MacBook keyboard, built-in trackpad, and experimental wired microphone with another Mac over direct Thunderbolt Bridge or Bluetooth while keeping your external mouse independent.",
+          "description": "A lightweight macOS menu bar app that lets you use your MacBook keyboard, built-in trackpad, and experimental wired microphone on another Mac over a direct Thunderbolt cable or Bluetooth, while keeping your external mouse independent.",
           "url": "https://keybridge.886366.xyz/",
           "downloadUrl": "https://github.com/winglight9/KeyBridge/releases/download/v1.6/KeyBridge-1.6.zip",
           "softwareVersion": "1.6",
@@ -59,31 +59,31 @@
               "name": "Does any USB-C cable work with KeyBridge?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "No. Prefer a USB-C-to-USB-C cable explicitly rated for Thunderbolt 3, 4, or 5 connected to Thunderbolt ports on both Macs. For USB4 cables, confirm explicit Thunderbolt compatibility and Mac-to-Mac Thunderbolt networking."
+                "text": "No. You need a certified Thunderbolt 3, 4, or 5 USB-C cable (or a USB4 cable explicitly confirmed to support Mac-to-Mac Thunderbolt networking). Ordinary charging or video cables will not work."
               }
             },
             {
               "@type": "Question",
-              "name": "Which port should I use on Mac mini M4 / M4 Pro?",
+              "name": "Which port should I plug into on Mac mini M4 / M4 Pro?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Use one of the three rear Thunderbolt ports (Thunderbolt 4 on M4, Thunderbolt 5 on M4 Pro). The two front USB-C ports are USB 3 (10 Gb/s) and cannot establish Thunderbolt Bridge."
+                "text": "Plug into one of the three Thunderbolt ports on the back. The two front USB-C ports are USB 3 only and cannot create a Thunderbolt link."
               }
             },
             {
               "@type": "Question",
-              "name": "What if the MacBook locks while I am using the other Mac?",
+              "name": "What if my MacBook locks while I am controlling the other Mac?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Turn on Prevent automatic lock in KeyBridge 1.6. While connected, KeyBridge holds a process-scoped macOS display-sleep assertion without modifying global Lock Screen settings."
+                "text": "Turn on Prevent automatic lock in KeyBridge 1.6. While connected, it temporarily keeps the screen from sleeping and locking without changing your Mac’s system settings."
               }
             },
             {
               "@type": "Question",
-              "name": "Does KeyBridge use Wi-Fi or cloud relays?",
+              "name": "Does KeyBridge use Wi-Fi or send anything to the cloud?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "No. KeyBridge uses direct Thunderbolt Bridge or Bluetooth chosen manually, with authenticated peer-to-peer encryption and no cloud account or relay."
+                "text": "No. It only connects directly over your Thunderbolt cable or Bluetooth with end-to-end encryption. Nothing goes over Wi-Fi or any cloud server."
               }
             }
           ]
@@ -133,11 +133,11 @@
     <section class="hero wrap" aria-labelledby="headline">
       <div class="hero-badge">
         <span class="badge-dot" aria-hidden="true"></span>
-        <span data-i18n="heroBadge">macOS 14+ · Apple Silicon Beta · Open Source MIT</span>
+        <span data-i18n="heroBadge">macOS 14+ · Apple Silicon Beta · Free &amp; Open Source</span>
       </div>
 
       <h1 id="headline" data-i18n="headline">One keyboard.<br>Two Macs.</h1>
-      <p class="hero-intro" data-i18n="intro">Share your MacBook’s keyboard and built-in trackpad with another Mac from the menu bar. Keep your external mouse independent.</p>
+      <p class="hero-intro" data-i18n="intro">Use your MacBook’s keyboard and trackpad to control another Mac right from the menu bar. Your external mouse stays untouched on its own Mac.</p>
 
       <div class="hero-actions">
         <a class="btn btn-primary" href="https://github.com/winglight9/KeyBridge/releases/download/v1.6/KeyBridge-1.6.zip">
@@ -156,7 +156,7 @@
 
       <p class="hero-subnote">
         <span class="subnote-tag" data-i18n="recommendedTag">Recommended</span>
-        <span data-i18n="connectionPriority">Direct Thunderbolt cable for daily low-latency work · Bluetooth backup</span>
+        <span data-i18n="connectionPriority">Plug in a Thunderbolt cable for instant response · Bluetooth works as a wireless backup</span>
       </p>
 
       <!-- Interactive Product Stage -->
@@ -164,9 +164,9 @@
         <div class="stage-header">
           <div class="stage-caption">
             <span class="live-dot" aria-hidden="true"></span>
-            <span data-i18n="previewNote">Interactive preview · try switching devices, transport or toggles</span>
+            <span data-i18n="previewNote">Interactive preview · try switching devices, connection mode, or toggles</span>
           </div>
-          <button class="pulse-btn" id="send-pulse" type="button" data-i18n="sendPulse">Test input pulse</button>
+          <button class="pulse-btn" id="send-pulse" type="button" data-i18n="sendPulse">Try typing pulse</button>
         </div>
 
         <div class="product-stage" id="product-stage">
@@ -195,7 +195,7 @@
                 <div class="laptop-notch"></div>
                 <div class="screen-wallpaper teal-wall"></div>
                 <div class="screen-ui">
-                  <span class="screen-pill" id="macbook-badge" data-i18n="sourceBadge">Input source</span>
+                  <span class="screen-pill" id="macbook-badge" data-i18n="sourceBadge">Sending input</span>
                   <div class="screen-copy" data-i18n="builtIn">Built-in keyboard &amp; trackpad</div>
                 </div>
                 <div class="mini-dock" aria-hidden="true">
@@ -278,7 +278,7 @@
                 </label>
               </div>
 
-              <p class="popover-foot" id="demo-hint" data-i18n="hintWired">Low-latency Thunderbolt Bridge · display stays awake</p>
+              <p class="popover-foot" id="demo-hint" data-i18n="hintWired">Connected over Thunderbolt · screen stays awake</p>
             </div>
           </div>
 
@@ -288,7 +288,7 @@
               <div class="display-bezel">
                 <div class="screen-wallpaper blue-wall"></div>
                 <div class="screen-ui">
-                  <span class="screen-pill target-pill" id="mini-badge" data-i18n="targetBadge">Receiving input</span>
+                  <span class="screen-pill target-pill" id="mini-badge" data-i18n="targetBadge">Being controlled</span>
                   <div class="screen-copy" data-i18n="yourOtherMac">Your other Mac</div>
                   <div class="mic-meter" id="mic-meter" aria-hidden="true">
                     <span class="mic-label">KeyBridge Mic</span>
@@ -317,9 +317,9 @@
     <!-- Bento Features -->
     <section class="section wrap" id="features">
       <div class="section-head">
-        <span class="eyebrow" data-i18n="featuresEyebrow">DESIGNED FOR TWO MACS</span>
-        <h2 data-i18n="featureHeading">Just point. Then type.</h2>
-        <p class="section-intro" data-i18n="featureIntro">Choose which Mac provides input and which Mac receives it. No main window, no screen streaming, and everything stays a click away in your menu bar.</p>
+        <span class="eyebrow" data-i18n="featuresEyebrow">MADE FOR TWO-MAC DESKS</span>
+        <h2 data-i18n="featureHeading">Pick a Mac. Start typing.</h2>
+        <p class="section-intro" data-i18n="featureIntro">No extra keyboard cluttering your desk, no screen streaming, no messy main window. Just pick which Mac to control from the menu bar.</p>
       </div>
 
       <div class="bento-grid">
@@ -331,12 +331,12 @@
               <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M18 13h.01M9 15h6"/>
             </svg>
           </div>
-          <h3 data-i18n="featureOneTitle">Your familiar keyboard &amp; trackpad.</h3>
-          <p data-i18n="featureOneBody">Keep typing on your MacBook with native function keys, pointer movement, clicks, dragging, and continuous two-finger scrolling that respects natural scroll direction. Optional experimental native multi-finger gesture forwarding sends gestures directly to the target Mac without hard-coded shortcut hacks.</p>
+          <h3 data-i18n="featureOneTitle">Feels just like your own keyboard &amp; trackpad.</h3>
+          <p data-i18n="featureOneBody">Type normally with native function keys, click, drag, and scroll smoothly with two fingers in the exact direction you are used to. You can also turn on experimental multi-finger gestures—your swipes and pinches are handled natively by the other Mac, not faked with keyboard shortcuts.</p>
           <div class="card-chips">
-            <span class="chip" data-i18n="chipScroll">Continuous 2-finger scroll</span>
+            <span class="chip" data-i18n="chipScroll">Smooth 2-finger scroll</span>
             <span class="chip" data-i18n="chipFn">Native Fn keys</span>
-            <span class="chip chip-accent" data-i18n="chipGestures">Native multi-finger (Exp.)</span>
+            <span class="chip chip-accent" data-i18n="chipGestures">Multi-finger gestures (Beta)</span>
           </div>
         </article>
 
@@ -348,10 +348,10 @@
               <path d="M12 2v8M6 10h12"/>
             </svg>
           </div>
-          <h3 data-i18n="featureTwoTitle">A mouse that stays yours.</h3>
-          <p data-i18n="featureTwoBody">Your external mouse stays local at all times. Use it to switch destinations, reconnect, or reclaim input instantly—plus an emergency keyboard shortcut whenever you need it.</p>
+          <h3 data-i18n="featureTwoTitle">Your mouse always stays yours.</h3>
+          <p data-i18n="featureTwoBody">KeyBridge never takes over your external mouse. You can always use it to switch back, reconnect, or stop sharing—and if you ever want an instant keyboard escape, one shortcut brings control right back.</p>
           <div class="shortcut-row" aria-label="Emergency return shortcut">
-            <span class="shortcut-label" data-i18n="emergencyLabel">Emergency return</span>
+            <span class="shortcut-label" data-i18n="emergencyLabel">Instant return</span>
             <span class="kbd-group"><kbd>⌃</kbd><kbd>⌥</kbd><kbd>⌘</kbd><kbd>⎋</kbd></span>
           </div>
         </article>
@@ -367,8 +367,8 @@
             </div>
             <span class="new-badge" data-i18n="newIn16">New in 1.6</span>
           </div>
-          <h3 data-i18n="featureLockTitle">Prevent automatic lock.</h3>
-          <p data-i18n="featureLockBody">Optionally hold a process-scoped macOS display assertion while connected so an idle MacBook won’t lock mid-session. Global Lock Screen settings stay untouched; quitting releases it immediately.</p>
+          <h3 data-i18n="featureLockTitle">No more mid-work auto-lock.</h3>
+          <p data-i18n="featureLockBody">Turn on “Prevent automatic lock” so your idle MacBook doesn’t go to sleep and lock while you’re typing on the other Mac. It never changes your System Settings, and stops the moment you switch it off or quit.</p>
         </article>
 
         <!-- Card 4: One app, zero cloud -->
@@ -379,8 +379,8 @@
               <path d="m9 12 2 2 4-4"/>
             </svg>
           </div>
-          <h3 data-i18n="featureThreeTitle">Direct, encrypted, no cloud.</h3>
-          <p data-i18n="featureThreeBody">Install the exact same lightweight Swift app on both Macs. Bilateral 6-digit pairing pins peer identities and encrypts input directly—no accounts, no relay servers, and no silent Wi-Fi fallback.</p>
+          <h3 data-i18n="featureThreeTitle">Direct, encrypted, no accounts.</h3>
+          <p data-i18n="featureThreeBody">Install the exact same small app on both Macs. Confirm a 6-digit code on each screen to pair, and everything travels encrypted straight between the two Macs—no cloud servers, no login, and no sneaky Wi-Fi fallback.</p>
         </article>
 
         <!-- Card 5: Safe recovery -->
@@ -391,39 +391,39 @@
               <path d="M3 3v5h5"/>
             </svg>
           </div>
-          <h3 data-i18n="featureRecoveryTitle">Fail-safe by design.</h3>
-          <p data-i18n="featureRecoveryBody">Disconnects, sleep, lid close, or stale heartbeats immediately stop interception and release held keys. Brief scheduling gaps recover the route automatically without tearing down your session.</p>
+          <h3 data-i18n="featureRecoveryTitle">Never gets your keyboard stuck.</h3>
+          <p data-i18n="featureRecoveryBody">Unplug the cable, close the lid, or put a Mac to sleep and KeyBridge immediately lets go of all keys and returns input locally. If the link hiccups briefly, it pauses safely and reconnects automatically.</p>
         </article>
       </div>
 
       <div class="evidence-bar">
         <span class="evidence-dot" aria-hidden="true"></span>
-        <p data-i18n="testedNote">Physical validation scope: verified over a direct cable on an M1 Pro MacBook → M4 Mac mini (both macOS 15.8.1) covering keyboard, trackpad, native multi-finger gestures, and source input isolation. Other Mac models, macOS versions, and apps remain unverified.</p>
+        <p data-i18n="testedNote">Real-world test note: verified daily over a Thunderbolt cable on an M1 Pro MacBook → M4 Mac mini (both running macOS 15.8.1), including multi-finger gestures and external mouse isolation. Other Mac models and macOS versions have not been fully tested yet—feedback is welcome.</p>
       </div>
     </section>
 
     <!-- Connections & Port Clarity -->
     <section class="section wrap" id="connections">
       <div class="section-head">
-        <span class="eyebrow" data-i18n="connEyebrow">TRANSPORT</span>
-        <h2 data-i18n="connectionHeading">Choose your connection.</h2>
-        <p class="section-intro" data-i18n="connectionIntro">Pick your transport manually in the menu bar. KeyBridge never silently falls back to Wi-Fi or switches links behind your back.</p>
+        <span class="eyebrow" data-i18n="connEyebrow">HOW THEY CONNECT</span>
+        <h2 data-i18n="connectionHeading">Cable for speed. Bluetooth for backup.</h2>
+        <p class="section-intro" data-i18n="connectionIntro">You pick the connection mode manually. KeyBridge won’t quietly switch behind your back or fall back to Wi-Fi.</p>
       </div>
 
       <div class="transport-grid">
         <article class="transport-card recommended">
           <div class="transport-top">
             <div>
-              <h3 data-i18n="tbTitle">Direct Thunderbolt</h3>
-              <p class="transport-sub" data-i18n="thunderboltSub">Recommended for daily work · physically validated</p>
+              <h3 data-i18n="tbTitle">Direct Thunderbolt Cable</h3>
+              <p class="transport-sub" data-i18n="thunderboltSub">Best for daily use · feels instant</p>
             </div>
-            <span class="pill-recommended" data-i18n="bestChoice">Best experience</span>
+            <span class="pill-recommended" data-i18n="bestChoice">Recommended</span>
           </div>
-          <p class="transport-desc" data-i18n="thunderboltBody">Connect two Macs directly with a certified Thunderbolt 3, 4, or 5 USB-C cable to form macOS Thunderbolt Bridge. If buying a USB4 cable, verify explicit Thunderbolt compatibility and Mac-to-Mac Thunderbolt networking—“100W”, “full-featured”, or “4K” alone is not enough.</p>
+          <p class="transport-desc" data-i18n="thunderboltBody">Connect the two Macs directly with a certified Thunderbolt 3, 4, or 5 cable. If you buy a USB4 cable, double-check that it explicitly supports Mac-to-Mac Thunderbolt networking—labels like “100W”, “full-featured”, or “4K” aren’t enough.</p>
           <ul class="spec-list">
-            <li data-i18n="tbSpec1">Lowest latency for typing and trackpad tracking</li>
-            <li data-i18n="tbSpec2">Supports experimental native multi-finger gestures</li>
-            <li data-i18n="tbSpec3">Supports experimental wired microphone sharing</li>
+            <li data-i18n="tbSpec1">Snappy, near-native feel for typing and trackpad</li>
+            <li data-i18n="tbSpec2">Supports experimental multi-finger trackpad gestures</li>
+            <li data-i18n="tbSpec3">Supports experimental microphone sharing</li>
           </ul>
         </article>
 
@@ -431,15 +431,15 @@
           <div class="transport-top">
             <div>
               <h3 data-i18n="bluetoothLabel">Bluetooth</h3>
-              <p class="transport-sub" data-i18n="bluetoothSub">No cable required · backup mode</p>
+              <p class="transport-sub" data-i18n="bluetoothSub">No cable needed · handy backup</p>
             </div>
             <span class="pill-neutral" data-i18n="wirelessBackup">Wireless backup</span>
           </div>
-          <p class="transport-desc" data-i18n="bluetoothBody">Connect two Macs wirelessly when you don’t have a Thunderbolt cable handy. Bluetooth has noticeably higher input latency—especially on the trackpad—so it is best kept as a temporary or backup link.</p>
+          <p class="transport-desc" data-i18n="bluetoothBody">Great when you don’t have a Thunderbolt cable on hand. There is noticeable cursor lag compared to a cable, so it’s best kept for quick tasks or emergencies.</p>
           <ul class="spec-list muted-specs">
-            <li data-i18n="btSpec1">Typing, pointer, clicks, dragging, and 2-finger scroll</li>
-            <li data-i18n="btSpec2">Higher latency than direct Thunderbolt</li>
-            <li data-i18n="btSpec3">Microphone audio is not supported over Bluetooth</li>
+            <li data-i18n="btSpec1">Works for typing, pointer, clicks, dragging, and 2-finger scroll</li>
+            <li data-i18n="btSpec2">Higher delay than a direct Thunderbolt cable</li>
+            <li data-i18n="btSpec3">Cannot share microphone audio</li>
           </ul>
         </article>
       </div>
@@ -447,9 +447,9 @@
       <!-- Visual Mac mini Port Callout -->
       <div class="port-guide">
         <div class="port-copy">
-          <span class="eyebrow" data-i18n="portEyebrow">HARDWARE TIP · MAC MINI (2024)</span>
-          <h3 data-i18n="portTitle">Use a rear Thunderbolt port on Mac mini M4 / M4 Pro.</h3>
-          <p data-i18n="portDesc">The two front USB-C ports on Mac mini (2024) are USB 3 (10 Gb/s) and cannot establish Thunderbolt Bridge. Plug your Thunderbolt cable into one of the three rear Thunderbolt ports (Thunderbolt 4 on M4, Thunderbolt 5 on M4 Pro).</p>
+          <span class="eyebrow" data-i18n="portEyebrow">QUICK TIP · MAC MINI (2024)</span>
+          <h3 data-i18n="portTitle">On Mac mini M4 / M4 Pro, plug into the back.</h3>
+          <p data-i18n="portDesc">The two USB-C ports on the front of the 2024 Mac mini are regular USB 3 ports—they look the same, but they don’t support Thunderbolt networking. Plug your cable into any of the three Thunderbolt ports on the back instead.</p>
         </div>
         <div class="port-diagram" aria-label="Mac mini front and rear port diagram">
           <div class="port-side">
@@ -459,10 +459,10 @@
               <span class="port-slot bad" title="USB-C USB 3"></span>
               <span class="port-jack" title="3.5mm"></span>
             </div>
-            <span class="port-verdict bad" data-i18n="portNo">✕ Not for Thunderbolt Bridge</span>
+            <span class="port-verdict bad" data-i18n="portNo">✕ Won’t work for Thunderbolt</span>
           </div>
           <div class="port-side">
-            <span class="port-side-label" data-i18n="portRear">Rear (Thunderbolt 4 / 5)</span>
+            <span class="port-side-label" data-i18n="portRear">Back (Thunderbolt 4 / 5)</span>
             <div class="chassis-bar rear">
               <span class="port-eth"></span>
               <span class="port-hdmi"></span>
@@ -470,7 +470,7 @@
               <span class="port-slot good" title="Thunderbolt"></span>
               <span class="port-slot good" title="Thunderbolt"></span>
             </div>
-            <span class="port-verdict good" data-i18n="portYes">✓ Use any rear Thunderbolt port</span>
+            <span class="port-verdict good" data-i18n="portYes">✓ Plug into any of these three</span>
           </div>
         </div>
       </div>
@@ -480,19 +480,19 @@
     <section class="section wrap" id="microphone">
       <div class="mic-panel">
         <div class="mic-copy">
-          <span class="eyebrow" data-i18n="micEyebrow">EXPERIMENTAL · WIRED ONLY</span>
-          <h2 data-i18n="microphoneHeading">Your microphone, on the other Mac.</h2>
-          <p class="section-intro" data-i18n="microphoneIntro">Share one Mac’s microphone over the encrypted Thunderbolt link. Off by default, with synchronized readiness switches on both Macs.</p>
-          <p class="mic-body" data-i18n="microphoneBody">Enable Share microphone below the native-gestures toggle. KeyBridge checks your connection, permissions, and optional receiver component step by step. Both switches stay off until capture and audio reception are both active—and switching off either end stops sharing immediately.</p>
+          <span class="eyebrow" data-i18n="micEyebrow">EXPERIMENTAL · CABLE ONLY</span>
+          <h2 data-i18n="microphoneHeading">Borrow your MacBook’s mic on the other Mac.</h2>
+          <p class="section-intro" data-i18n="microphoneIntro">Using a Mac mini without a mic? Turn on one switch to send your MacBook’s microphone over the encrypted Thunderbolt cable. Off by default.</p>
+          <p class="mic-body" data-i18n="microphoneBody">Turn on “Share microphone” right under the gestures option. If a permission or driver is missing, KeyBridge walks you through it. Both Macs show it active only when audio is actually flowing, and turning it off on either Mac stops it immediately.</p>
           <ul class="mic-bullets">
-            <li data-i18n="micPoint1">48 kHz mono PCM in 20 ms frames over encrypted wired transport (Bluetooth unsupported)</li>
-            <li data-i18n="micPoint2">Receiver virtual driver installs once with admin approval and reloads locally—no Mac reboot required</li>
-            <li data-i18n="micPoint3">Select KeyBridge Microphone in your voice app; never alters your system default microphone</li>
+            <li data-i18n="micPoint1">Clear, low-latency 48 kHz audio over the encrypted Thunderbolt cable (no Bluetooth audio)</li>
+            <li data-i18n="micPoint2">One-time virtual mic install on the receiving Mac—activates right away with no reboot</li>
+            <li data-i18n="micPoint3">Just pick “KeyBridge Microphone” in your call app; your system default mic stays untouched</li>
           </ul>
           <div class="mic-footer">
-            <p class="beta-note" data-i18n="microphoneLimits">Experimental status: physical two-Mac voice-app acceptance testing is still pending. Reconnecting never resumes capture automatically.</p>
+            <p class="beta-note" data-i18n="microphoneLimits">Heads-up: this feature is still experimental and hasn’t been tested across every voice app yet. Reconnecting never turns your mic back on automatically.</p>
             <a class="text-link" href="https://github.com/winglight9/KeyBridge/blob/main/docs/microphone.md">
-              <span data-i18n="microphoneGuide">Microphone setup &amp; limitations</span>
+              <span data-i18n="microphoneGuide">Microphone setup &amp; details</span>
               <span aria-hidden="true">↗</span>
             </a>
           </div>
@@ -508,8 +508,8 @@
                 </svg>
               </div>
               <div>
-                <strong data-i18n="sigSourceTitle">Source Mac Mic</strong>
-                <span data-i18n="sigSourceSub">48 kHz · Mono PCM · 20 ms</span>
+                <strong data-i18n="sigSourceTitle">MacBook Microphone</strong>
+                <span data-i18n="sigSourceSub">48 kHz · Clear mono audio</span>
               </div>
             </div>
 
@@ -517,7 +517,7 @@
               <div class="wave-bars">
                 <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
               </div>
-              <small data-i18n="sigPipe">Encrypted Thunderbolt link</small>
+              <small data-i18n="sigPipe">Encrypted Thunderbolt cable</small>
             </div>
 
             <div class="signal-node target">
@@ -530,7 +530,7 @@
               </div>
               <div>
                 <strong>KeyBridge Microphone</strong>
-                <span data-i18n="sigTargetSub">Core Audio HAL · Zero reboot reload</span>
+                <span data-i18n="sigTargetSub">Ready in any voice app · No reboot</span>
               </div>
             </div>
           </div>
@@ -541,24 +541,24 @@
     <!-- Setup -->
     <section class="section wrap" id="setup">
       <div class="section-head">
-        <span class="eyebrow" data-i18n="setupEyebrow">QUICK START</span>
-        <h2 data-i18n="setupHeading">Ready on both Macs.</h2>
-        <p class="section-intro" data-i18n="setupIntro">Install the same app on both Macs, grant permissions once, and approve the six-digit pairing code.</p>
+        <span class="eyebrow" data-i18n="setupEyebrow">GET STARTED</span>
+        <h2 data-i18n="setupHeading">Up and running in 3 steps.</h2>
+        <p class="section-intro" data-i18n="setupIntro">Install the same app on both Macs, allow permissions once, and confirm a 6-digit code.</p>
       </div>
 
       <ol class="steps-grid">
         <li class="step-card">
           <div class="step-num">01</div>
-          <h3 data-i18n="stepOneTitle">Install the same app</h3>
-          <p data-i18n="stepOneBody">Download KeyBridge v1.6 and place it in Applications on both Macs before granting permissions. Targets Apple Silicon Macs on macOS 14 or later.</p>
+          <h3 data-i18n="stepOneTitle">Install on both Macs</h3>
+          <p data-i18n="stepOneBody">Download KeyBridge v1.6 and drag it into Applications on both Macs first (so macOS doesn’t ask for permissions twice). Built for Apple Silicon Macs on macOS 14+.</p>
           <div class="step-tags">
             <span>/Applications/KeyBridge.app</span>
           </div>
         </li>
         <li class="step-card">
           <div class="step-num">02</div>
-          <h3 data-i18n="stepTwoTitle">Allow permissions</h3>
-          <p data-i18n="stepTwoBody">Source Mac needs Input Monitoring and Accessibility. Destination Mac needs Accessibility. Allow Local Network for wired discovery, or Bluetooth when wireless.</p>
+          <h3 data-i18n="stepTwoTitle">Grant permissions once</h3>
+          <p data-i18n="stepTwoBody">Allow Input Monitoring &amp; Accessibility on the Mac you type on, and Accessibility on the Mac you control. Allow Local Network (wired) or Bluetooth when prompted.</p>
           <div class="step-tags">
             <span data-i18n="permInput">Input Monitoring</span>
             <span data-i18n="permAccess">Accessibility</span>
@@ -566,21 +566,21 @@
         </li>
         <li class="step-card">
           <div class="step-num">03</div>
-          <h3 data-i18n="stepThreeTitle">Pair &amp; choose route</h3>
-          <p data-i18n="stepThreeBody">Compare the 6-digit code and approve on both Macs. Pick the source under Device and target under Apply to—the route syncs automatically to the other Mac.</p>
+          <h3 data-i18n="stepThreeTitle">Pair &amp; pick your target</h3>
+          <p data-i18n="stepThreeBody">Check that the 6-digit code matches on both screens and approve. Choose your keyboard under Device and target Mac under Apply to—both Macs stay in sync automatically.</p>
           <div class="step-tags">
-            <span data-i18n="permPair">Bilateral 6-digit code</span>
+            <span data-i18n="permPair">6-digit pairing code</span>
           </div>
         </li>
       </ol>
 
       <div class="trust-callout">
         <div class="trust-copy">
-          <strong data-i18n="betaTitle">Beta signing notice</strong>
-          <p data-i18n="betaNote">This open-source beta is locally signed and not Apple-notarized, so macOS may warn on first launch. Review the source or release notes, then use System Settings → Privacy &amp; Security → Open Anyway. Do not disable Gatekeeper globally.</p>
+          <strong data-i18n="betaTitle">First-launch macOS warning</strong>
+          <p data-i18n="betaNote">Because this free open-source beta isn’t paid-notarized by Apple yet, macOS will warn you the first time you open it. Just go to System Settings → Privacy &amp; Security → Open Anyway. Never turn off Gatekeeper globally.</p>
         </div>
         <a class="text-link nowrap" href="https://github.com/winglight9/KeyBridge/blob/main/docs/setup.md">
-          <span data-i18n="fullInstructions">Read full setup guide</span>
+          <span data-i18n="fullInstructions">Full setup guide</span>
           <span aria-hidden="true">↗</span>
         </a>
       </div>
@@ -591,46 +591,46 @@
       <div class="faq-layout">
         <div class="faq-intro">
           <span class="eyebrow">FAQ</span>
-          <h2 data-i18n="faqHeading">Frequently asked questions.</h2>
-          <p data-i18n="faqLead">Honest answers on cables, ports, gestures, security, and beta boundaries.</p>
+          <h2 data-i18n="faqHeading">Common questions.</h2>
+          <p data-i18n="faqLead">Plain answers about cables, ports, gestures, privacy, and what to expect in beta.</p>
           <a class="text-link" href="https://github.com/winglight9/KeyBridge/issues">
-            <span data-i18n="faqIssues">Report an issue on GitHub</span>
+            <span data-i18n="faqIssues">Ask or report a bug on GitHub</span>
             <span aria-hidden="true">↗</span>
           </a>
         </div>
 
         <div class="faq-list">
           <details>
-            <summary><span data-i18n="faqCableQ">Does any USB-C cable work?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqCableA">No. USB-C only describes the connector shape. Prefer a USB-C-to-USB-C cable explicitly rated for Thunderbolt 3, 4, or 5 and plug it into Thunderbolt ports on both Macs. For USB4 cables, confirm Thunderbolt compatibility and Mac-to-Mac Thunderbolt networking. Wattage, “full-featured”, or display specs alone do not prove compatibility.</p>
+            <summary><span data-i18n="faqCableQ">Can I use any USB-C cable?</span><span class="chevron" aria-hidden="true"></span></summary>
+            <p data-i18n="faqCableA">No. Most regular USB-C charging or display cables can’t create a Thunderbolt network link. Get a certified Thunderbolt 3, 4, or 5 cable (or a USB4 cable explicitly confirmed for Mac-to-Mac Thunderbolt networking) and plug it into Thunderbolt ports on both Macs.</p>
           </details>
           <details>
             <summary><span data-i18n="faqPortQ">Which port should I use on Mac mini?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqPortA">On Mac mini M4 / M4 Pro, use a rear Thunderbolt port (Thunderbolt 4 on M4, Thunderbolt 5 on M4 Pro). The two front USB-C ports are USB 3 (10 Gb/s) and cannot establish macOS Thunderbolt Bridge.</p>
+            <p data-i18n="faqPortA">On Mac mini M4 / M4 Pro, always use one of the three Thunderbolt ports on the back. The two USB-C ports on the front are USB 3 only and won’t work for Thunderbolt Bridge.</p>
           </details>
           <details>
             <summary><span data-i18n="faqGestureQ">Which trackpad gestures work?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqGestureA">Movement, clicks, dragging, and continuous two-finger scrolling work out of the box. Native multi-finger gesture forwarding is experimental and off by default. It was user-confirmed over a direct cable from an M1 Pro to a Mac mini M4 (macOS 15.8.1), forwarding native events for the destination system and apps to interpret without fixed shortcut mappings.</p>
+            <p data-i18n="faqGestureA">Moving, clicking, dragging, and smooth two-finger scrolling work out of the box. Multi-finger gestures (like switching desktops or Mission Control) are available as an optional beta toggle and work over Thunderbolt—tested on M1 Pro → Mac mini M4 (macOS 15.8.1). They are handled natively by the other Mac, not faked with fixed shortcuts.</p>
           </details>
           <details>
-            <summary><span data-i18n="faqLockQ">What if the MacBook locks while I am using the other Mac?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqLockA">Turn on Prevent automatic lock in KeyBridge. While connected, KeyBridge holds a process-scoped macOS display-sleep assertion so idle time does not lock the Mac before your next input. Turning it off or quitting KeyBridge releases it immediately. Manual lock, lid close, and system sleep still pause forwarding; global Lock Screen settings are never modified.</p>
+            <summary><span data-i18n="faqLockQ">What if my MacBook locks while I’m controlling the other Mac?</span><span class="chevron" aria-hidden="true"></span></summary>
+            <p data-i18n="faqLockA">Turn on “Prevent automatic lock” in KeyBridge. While the two Macs are connected, it temporarily keeps the screen from sleeping and locking on its own. Your system Lock Screen settings are never changed, and closing the lid or manually locking still works as usual.</p>
           </details>
           <details>
             <summary><span data-i18n="faqWifiQ">Does it use Wi-Fi?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqWifiA">No. KeyBridge uses either direct Thunderbolt Bridge or Bluetooth, chosen manually. It never falls back to Wi-Fi or silently switches transports.</p>
+            <p data-i18n="faqWifiA">No. It only uses a direct Thunderbolt cable or Bluetooth, whichever you pick. It never falls back to Wi-Fi.</p>
           </details>
           <details>
-            <summary><span data-i18n="faqMouseQ">Can I return to local input with a mouse?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqMouseA">Yes. External mouse input stays local. Click the menu bar icon with your mouse to select this Mac, stop sharing, or reconnect—or press Control–Option–Command–Escape at any time.</p>
+            <summary><span data-i18n="faqMouseQ">Can I switch back using my mouse?</span><span class="chevron" aria-hidden="true"></span></summary>
+            <p data-i18n="faqMouseA">Yes. Your external mouse always stays on its own Mac—just click KeyBridge in the menu bar to switch back or stop sharing. You can also press Control–Option–Command–Escape at any time.</p>
           </details>
           <details>
-            <summary><span data-i18n="faqInstallQ">Why does macOS warn me when opening the beta?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqInstallA">This beta uses a local development signature and is not notarized by Apple, so macOS may block first launch. If you trust the download, open System Settings → Privacy &amp; Security → Open Anyway. Do not disable Gatekeeper globally.</p>
+            <summary><span data-i18n="faqInstallQ">Why does macOS show a warning the first time I open it?</span><span class="chevron" aria-hidden="true"></span></summary>
+            <p data-i18n="faqInstallA">KeyBridge is a free, open-source beta without a paid Apple Developer ID notarization yet, so macOS blocks the first launch by default. After checking the source or release page, open System Settings → Privacy &amp; Security → Open Anyway. Don’t turn off Gatekeeper globally.</p>
           </details>
           <details>
-            <summary><span data-i18n="faqPrivacyQ">What is sent between the Macs?</span><span class="chevron" aria-hidden="true"></span></summary>
-            <p data-i18n="faqPrivacyA">Keyboard and trackpad input travels directly between paired Macs through an authenticated, encrypted session. Optional microphone audio is sent only when enabled over the wired link. Screen video is never streamed. Diagnostics exclude typed text and raw gesture payloads, though they may include device names and local network details.</p>
+            <summary><span data-i18n="faqPrivacyQ">Is my typing private? What gets sent?</span><span class="chevron" aria-hidden="true"></span></summary>
+            <p data-i18n="faqPrivacyA">Everything travels encrypted directly between your two paired Macs—never through the cloud. Screen video is never sent, and microphone audio is only sent if you explicitly turn it on over a cable. Diagnostic logs never record what you type.</p>
           </details>
         </div>
       </div>
@@ -640,14 +640,14 @@
     <section class="cta-band wrap">
       <div class="cta-box">
         <img src="assets/keybridge-icon.png" width="52" height="52" alt="">
-        <h2 data-i18n="ctaHeading">Ready to bridge your Macs?</h2>
-        <p data-i18n="ctaBody">Free, open source, and built in native Swift for macOS 14+ on Apple Silicon.</p>
+        <h2 data-i18n="ctaHeading">Ready to use one keyboard for both Macs?</h2>
+        <p data-i18n="ctaBody">Free, open source, and built natively for Apple Silicon Macs on macOS 14+.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="https://github.com/winglight9/KeyBridge/releases/download/v1.6/KeyBridge-1.6.zip">
             <span data-i18n="download">Download v1.6</span>
           </a>
           <a class="btn btn-secondary" href="https://github.com/winglight9/KeyBridge/releases/tag/v1.6">
-            <span data-i18n="releaseNotes">Release notes</span>
+            <span data-i18n="releaseNotes">What’s new in 1.6</span>
           </a>
         </div>
       </div>
