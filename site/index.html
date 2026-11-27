@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#06090b">
+  <meta name="theme-color" content="#0a0a0b">
   <meta name="description" content="KeyBridge (键桥) is a lightweight macOS menu bar app that shares your MacBook keyboard, trackpad, and experimental wired microphone with another Mac over Thunderbolt or Bluetooth.">
   <meta property="og:title" content="KeyBridge — One keyboard. Two Macs.">
   <meta property="og:description" content="Share your MacBook keyboard and built-in trackpad with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.">
@@ -21,12 +21,6 @@
   <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="ambient-bg" aria-hidden="true">
-    <div class="ambient-orb orb-1"></div>
-    <div class="ambient-orb orb-2"></div>
-    <div class="ambient-grid"></div>
-  </div>
-
   <header class="site-header">
     <div class="wrap nav-inner">
       <a class="brand" href="#" aria-label="KeyBridge home">
@@ -89,7 +83,6 @@
       <!-- Interactive Product Stage -->
       <div class="stage-shell" aria-label="Interactive product preview">
         <div class="stage-header">
-          <div class="stage-dots" aria-hidden="true"><span></span><span></span><span></span></div>
           <div class="stage-caption">
             <span class="live-dot" aria-hidden="true"></span>
             <span data-i18n="previewNote">Interactive preview · try switching devices, transport or toggles</span>
@@ -102,18 +95,18 @@
           <svg class="bridge-svg" viewBox="0 0 900 220" preserveAspectRatio="none" aria-hidden="true">
             <defs>
               <linearGradient id="bridgeGradWired" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.25"/>
-                <stop offset="50%" stop-color="#6cf5d0" stop-opacity="0.95"/>
-                <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0.25"/>
+                <stop offset="0%" stop-color="#a1a1aa" stop-opacity="0.2"/>
+                <stop offset="50%" stop-color="#f5f5f7" stop-opacity="0.88"/>
+                <stop offset="100%" stop-color="#a1a1aa" stop-opacity="0.2"/>
               </linearGradient>
               <linearGradient id="bridgeGradBt" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
-                <stop offset="50%" stop-color="#60a5fa" stop-opacity="0.95"/>
-                <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.25"/>
+                <stop offset="0%" stop-color="#0a84ff" stop-opacity="0.22"/>
+                <stop offset="50%" stop-color="#64a8ff" stop-opacity="0.85"/>
+                <stop offset="100%" stop-color="#0a84ff" stop-opacity="0.22"/>
               </linearGradient>
             </defs>
-            <path class="bridge-track" d="M 180 168 Q 450 236 720 168" fill="none" stroke-width="2.5"/>
-            <path class="bridge-flow" id="bridge-flow" d="M 180 168 Q 450 236 720 168" fill="none" stroke-width="3"/>
+            <path class="bridge-track" d="M 180 168 Q 450 236 720 168" fill="none" stroke-width="1.75"/>
+            <path class="bridge-flow" id="bridge-flow" d="M 180 168 Q 450 236 720 168" fill="none" stroke-width="2"/>
           </svg>
 
           <!-- Left Device: MacBook Pro -->
