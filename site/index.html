@@ -3,19 +3,104 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0a0a0b">
-  <meta name="description" content="KeyBridge (键桥) is a lightweight macOS menu bar app that shares your MacBook keyboard, trackpad, and experimental wired microphone with another Mac over Thunderbolt or Bluetooth.">
-  <meta property="og:title" content="KeyBridge — One keyboard. Two Macs.">
+  <meta name="theme-color" id="theme-color-meta" content="#0a0a0b">
+  <meta name="robots" content="index, follow">
+  <meta name="description" id="meta-description" content="KeyBridge (键桥) is a free, open-source macOS menu bar app that shares your MacBook keyboard, trackpad, and experimental wired microphone with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.">
+  <meta name="keywords" content="KeyBridge, 键桥, macOS, share keyboard between Macs, share trackpad, Thunderbolt Bridge, MacBook, Mac mini, software KVM, open source, 共享键盘, 共享触摸板, 雷雳网桥">
+  <link rel="canonical" href="https://keybridge.886366.xyz/">
+  <meta property="og:site_name" content="KeyBridge / 键桥">
+  <meta property="og:title" content="KeyBridge (键桥) — One keyboard. Two Macs.">
   <meta property="og:description" content="Share your MacBook keyboard and built-in trackpad with another Mac over direct Thunderbolt or Bluetooth. Keep your external mouse independent.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://keybridge.886366.xyz/">
+  <meta property="og:image" content="https://keybridge.886366.xyz/assets/og-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="KeyBridge — One keyboard. Two Macs.">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_CN">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="KeyBridge (键桥) — One keyboard. Two Macs.">
+  <meta name="twitter:description" content="A lightweight open-source macOS menu bar app for sharing your MacBook keyboard and trackpad with another Mac over Thunderbolt or Bluetooth.">
+  <meta name="twitter:image" content="https://keybridge.886366.xyz/assets/og-card.png">
   <title>KeyBridge — One keyboard. Two Macs.</title>
   <link rel="icon" href="assets/keybridge-icon.png">
+  <link rel="apple-touch-icon" href="assets/keybridge-icon.png">
   <link rel="stylesheet" href="style.css">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "KeyBridge / 键桥",
+          "alternateName": ["KeyBridge", "键桥"],
+          "description": "A lightweight macOS menu bar app that shares a MacBook keyboard, built-in trackpad, and experimental wired microphone with another Mac over direct Thunderbolt Bridge or Bluetooth while keeping your external mouse independent.",
+          "url": "https://keybridge.886366.xyz/",
+          "downloadUrl": "https://github.com/winglight9/KeyBridge/releases/download/v1.6/KeyBridge-1.6.zip",
+          "softwareVersion": "1.6",
+          "operatingSystem": "macOS 14.0+",
+          "applicationCategory": "UtilitiesApplication",
+          "inLanguage": ["en", "zh-CN"],
+          "license": "https://github.com/winglight9/KeyBridge/blob/main/LICENSE",
+          "image": "https://keybridge.886366.xyz/assets/og-card.png",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Does any USB-C cable work with KeyBridge?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. Prefer a USB-C-to-USB-C cable explicitly rated for Thunderbolt 3, 4, or 5 connected to Thunderbolt ports on both Macs. For USB4 cables, confirm explicit Thunderbolt compatibility and Mac-to-Mac Thunderbolt networking."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which port should I use on Mac mini M4 / M4 Pro?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Use one of the three rear Thunderbolt ports (Thunderbolt 4 on M4, Thunderbolt 5 on M4 Pro). The two front USB-C ports are USB 3 (10 Gb/s) and cannot establish Thunderbolt Bridge."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What if the MacBook locks while I am using the other Mac?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Turn on Prevent automatic lock in KeyBridge 1.6. While connected, KeyBridge holds a process-scoped macOS display-sleep assertion without modifying global Lock Screen settings."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does KeyBridge use Wi-Fi or cloud relays?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. KeyBridge uses direct Thunderbolt Bridge or Bluetooth chosen manually, with authenticated peer-to-peer encryption and no cloud account or relay."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  </script>
   <script>
     try {
       var savedLang = localStorage.getItem('keybridge-language') || (navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en');
       document.documentElement.lang = savedLang === 'zh' ? 'zh-CN' : 'en';
+      var savedTheme = localStorage.getItem('keybridge-theme');
+      var theme = (savedTheme === 'light' || savedTheme === 'dark')
+        ? savedTheme
+        : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.dataset.theme = theme;
+      var metaTheme = document.getElementById('theme-color-meta');
+      if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#f5f5f7' : '#0a0a0b');
     } catch (e) {}
   </script>
   <script src="app.js" defer></script>
@@ -43,6 +128,15 @@
             <path d="M12 .7a11.6 11.6 0 0 0-3.7 22.6c.6.1.8-.2.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6A11.6 11.6 0 0 0 12 .7Z"/>
           </svg>
         </a>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch color theme" title="Toggle light/dark mode">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
         <button class="lang-toggle" id="language" type="button" aria-label="Switch to Chinese">中文</button>
         <a class="nav-download" href="https://github.com/winglight9/KeyBridge/releases/download/v1.6/KeyBridge-1.6.zip" data-i18n="navDownload">Download</a>
       </div>
